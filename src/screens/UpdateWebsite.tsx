@@ -7,22 +7,22 @@ import {
   Alert,
   Linking,
 } from 'react-native';
-import React, {useEffect, useState} from 'react';
+import React, { useEffect, useState } from 'react';
 import Clipboard from '@react-native-clipboard/clipboard';
-
 import FontAwesome from 'react-native-vector-icons/FontAwesome';
-import {useForm} from 'react-hook-form';
-import {useNavigation} from '@react-navigation/native';
+import { useForm } from 'react-hook-form';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import tw from 'twrnc';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import {API_IP_ADDRESS} from '../../config';
+import { API_IP_ADDRESS } from '../../config';
 import UpdateAIContentModal from '../components/website/Content';
-// import UploadImagesModal from '../components/website/UploadImagesModal';
-
-import Toast from 'react-native-toast-message';
 import UploadImagesModal from '../components/website/UploadImagesModal';
+import Toast from 'react-native-toast-message';
+import { FormValues, MediaCategory, RootStackParamList } from '../types';
+import { uploadToS3 } from '../components/website/UploadImagesModal';
 
-const PREVIEW_URL_ENDPOINT = `${API_IP_ADDRESS}/api/get-preview-url`; // New endpoint to fetch preview URL
+const PREVIEW_URL_ENDPOINT = `${API_IP_ADDRESS}/api/get-preview-url`;
 
 const UpdateWebsite = () => {
   const initialFormValues: FormValues = {
@@ -37,57 +37,27 @@ const UpdateWebsite = () => {
       videos: [],
     },
   };
-  const router = useNavigation();
-  const {width} = useWindowDimensions();
+  const router = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const { width } = useWindowDimensions();
   const isDesktop = width > 800;
 
-  // State variables
   const [modalVisible, setModalVisible] = useState(false);
   const [uploadModalVisible, setUploadModalVisible] = useState(false);
   const [customerId, setCustomerId] = useState('');
-  // const [category_id, setCategoryId] = useState('');
-  // Processing states for various actions
+  const [categoryId, setCategoryId] = useState('');
   const [saveChangesLoading, setSaveChangesLoading] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [deployLoading, setDeployLoading] = useState(false);
   const [previewUrlLoading, setPreviewUrlLoading] = useState(false);
-
-  // Button states
   const [previewEnabled, setPreviewEnabled] = useState(false);
   const [previewSuccessful, setPreviewSuccessful] = useState(false);
-const [categoryId, setCategoryId] = useState('');
-  // Image upload related states
   const [isUploading, setIsUploading] = useState(false);
-  const [selectedGallerySlot, setSelectedGallerySlot] = useState(null);
-  const [selectedProductSlot, setSelectedProductSlot] = useState(null);
+  const [selectedGallerySlot, setSelectedGallerySlot] = useState<number | null>(null);
+  const [selectedProductSlot, setSelectedProductSlot] = useState<number | null>(null);
   const [formValues, setFormValues] = useState<FormValues>(initialFormValues);
-  // const [categoryId, setCategoryId] = useState('');
   const [loading, setLoading] = useState(false);
-  // Initialize form values with empty arrays for each category
-  // Correctly initialize formValues
 
-  type MediaCategory =
-    | 'landingPage'
-    | 'aboutUs'
-    | 'gallery'
-    | 'paymentQR'
-    | 'products'
-    | 'logo'
-    | 'items'
-    | 'videos';
-
-  interface FormValues {
-    uploadedImages: {
-      [key in MediaCategory]: string[];
-    };
-  }
-
-  // Initialize react-hook-form
-  const {
-    control,
-    handleSubmit,
-    formState: {errors},
-  } = useForm({
+  const { control } = useForm({
     defaultValues: {
       uploadedImages: {
         landingPage: [],
@@ -102,7 +72,6 @@ const [categoryId, setCategoryId] = useState('');
     },
   });
 
-  // Helper function to check if any action is in progress
   const isAnyActionInProgress = () => {
     return (
       saveChangesLoading ||
@@ -113,7 +82,6 @@ const [categoryId, setCategoryId] = useState('');
     );
   };
 
-  // Fetch customer ID when component mounts
   useEffect(() => {
     const fetchCustomerId = async () => {
       try {
@@ -123,52 +91,44 @@ const [categoryId, setCategoryId] = useState('');
           fetchCategoryId(id);
           console.log('Customer ID loaded from storage:', id);
         } else {
-          console.warn('No customer ID found in storage');
-          Alert.alert('Login Required', 'Please login to continue.', [
-            // {text: 'OK', onPress: () => router.navigate('/Login')},
+          console.warn('No customer provenant de l\'AsyncStorage');
+          Alert.alert('Connexion Requise', 'Veuillez vous connecter pour continuer.', [
+            // {text: 'OK', onPress: () => router.navigate('Login')},
           ]);
         }
       } catch (error) {
-        console.error('Error fetching customer ID:', error);
+        console.error('Erreur lors de la récupération de l\'ID client:', error);
       }
     };
 
     fetchCustomerId();
   }, []);
+
   console.log('Customer ID:', customerId, 'Category ID:', categoryId);
 
   const fetchCategoryId = async (custId: string) => {
-  try {
-    setLoading(true);
-    const response = await fetch(
-      `${API_IP_ADDRESS}/api/get-category-id?cust_id=${encodeURIComponent(custId)}`
-    );
-    const result = await response.json();
+    try {
+      setLoading(true);
+      const response = await fetch(
+        `${API_IP_ADDRESS}/api/get-category-id?cust_id=${encodeURIComponent(custId)}`
+      );
+      const result = await response.json();
 
-    if (response.ok && result.category_id) {
-      setCategoryId(result.category_id);
-      console.log('Category ID set:', result.category_id);
+      if (response.ok && result.category_id) {
+        setCategoryId(result.category_id);
+        console.log('Category ID set:', result.category_id);
+        setLoading(false);
+      } else {
+        setLoading(false);
+        Alert.alert('Category ID not found for this customer.');
+      }
+    } catch (error) {
       setLoading(false);
-    } else {
-      setLoading(false);
-      Alert.alert('Category ID not found for this customer.');
+      console.error('Error fetching category ID:', error);
+      Alert.alert('Error retrieving category information.');
     }
-  } catch (error) {
-    setLoading(false);
-    console.error('Error fetching category ID:', error);
-    Alert.alert('Error retrieving category information.');
-  }
-};
-  type RouteType =
-    | 'EditCustomer'
-    | 'MenuSettings'
-    | 'SelectTemplate'
-    | 'PreviewUrl'
-    | 'Deploy'
-    | 'ContentUpdation'
-    | 'UploadImagesModal';
+  };
 
-  // Handle file upload to AWS
   const handleFileUploadToAWS = async (
     onChange: (value: FormValues['uploadedImages']) => void,
     category: MediaCategory,
@@ -177,15 +137,19 @@ const [categoryId, setCategoryId] = useState('');
       setIsUploading(true);
       console.log(`Uploading files for category: ${category}`);
 
-      // Simulate upload delay
-      setTimeout(() => {
-        setIsUploading(false);
+      const result = await launchImageLibrary({
+        mediaType: category === 'videos' ? 'video' : 'photo',
+        selectionLimit: 1,
+      });
 
-        const mockUploadedUrl = `https://example.com/mock-image-${Date.now()}.jpg`;
+      if (!result.didCancel && result.assets?.length) {
+        const file = result.assets[0];
+        const key = `images/${customerId}/${category}/${Date.now()}-${Math.random().toString(36).substring(7)}`;
+        const s3Url = await uploadToS3({ uri: file.uri, type: file.type }, key);
 
         const updatedImages = [
           ...(formValues.uploadedImages[category] || []),
-          mockUploadedUrl,
+          s3Url,
         ];
 
         const updatedFormValues: FormValues = {
@@ -196,52 +160,63 @@ const [categoryId, setCategoryId] = useState('');
           },
         };
 
-        // Update form values and ensure it's correctly typed
         setFormValues(updatedFormValues);
         onChange(updatedFormValues.uploadedImages);
-      }, 1000);
+        Toast.show({
+          type: 'success',
+          text1: 'Upload Successful',
+          text2: `File uploaded to ${category}`,
+        });
+      }
     } catch (error) {
-      console.error('Error uploading files:', error);
+      console.error('Error uploading files:', error.message || error);
+      Toast.show({
+        type: 'error',
+        text1: 'Upload Failed',
+        text2: 'Failed to upload files. Please try again.',
+      });
+    } finally {
       setIsUploading(false);
-      Alert.alert('Error', 'Failed to upload files. Please try again.');
     }
   };
 
-  // Save uploaded images
   const saveUploadedImages = async () => {
     try {
       setIsUploading(true);
 
-      // Store uploaded images in AsyncStorage
       await AsyncStorage.setItem(
         'uploadedImages',
         JSON.stringify(formValues.uploadedImages),
       );
 
-      // Add additional save logic here
-
       setIsUploading(false);
       setUploadModalVisible(false);
 
-      // Show success message
-      Alert.alert('Success', 'Images uploaded successfully!');
+      Toast.show({
+        type: 'success',
+        text1: 'Success',
+        text2: 'Images saved successfully!',
+      });
     } catch (error) {
       console.error('Error saving images:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'Failed to save images. Please try again.',
+      });
+    } finally {
       setIsUploading(false);
-      Alert.alert('Error', 'Failed to save images. Please try again.');
     }
   };
 
-  const handleNavigation = (route: RouteType) => {
-    // Check if user is logged in before proceeding
+  const handleNavigation = (route: keyof RootStackParamList) => {
     if (!customerId) {
       Alert.alert('Login Required', 'Please login to continue.', [
-        // {text: 'OK', onPress: () => router.navigate('/Login')},
+        // {text: 'OK', onPress: () => router.navigate('Login')},
       ]);
       return;
     }
 
-    // Don't allow navigation if any action is in progress
     if (isAnyActionInProgress()) {
       Alert.alert(
         'Action in Progress',
@@ -251,33 +226,29 @@ const [categoryId, setCategoryId] = useState('');
       return;
     }
 
-    // Special handling for content updation
-    if (route === 'ContentUpdation') {
+    if (route === 'Content') {
       setModalVisible(true);
       return;
     }
 
-    // Special handling for image upload
     if (route === 'UploadImagesModal') {
-      setUploadModalVisible(true); // Ensure this modal state is properly defined
+      setUploadModalVisible(true);
       return;
     }
 
-    // For all other routes, proceed with normal navigation
-    router.navigate(route as never);
+    router.navigate(route);
   };
 
   const handleSaveChanges = async () => {
     if (!customerId) {
       Alert.alert('Login Required', 'Please login to continue.', [
-        // {text: 'OK', onPress: () => router.navigate('/Login')},
+        // {text: 'OK', onPress: () => router.navigate('Login')},
       ]);
       return;
     }
 
     try {
       setSaveChangesLoading(true);
-      // Call the API to generate website
       const response = await fetch(
         `${API_IP_ADDRESS}/generate-website?cust_id=${customerId}`,
       );
@@ -299,12 +270,10 @@ const [categoryId, setCategoryId] = useState('');
           [{text: 'OK'}],
         );
 
-        // Store any relevant data returned from the API
         if (data.web_agent_id) {
           await AsyncStorage.setItem('web_agent_id', data.web_agent_id);
         }
 
-        // Enable preview after successful generation
         setPreviewEnabled(true);
       } else {
         Alert.alert(
@@ -322,10 +291,11 @@ const [categoryId, setCategoryId] = useState('');
       setSaveChangesLoading(false);
     }
   };
+
   const handlePreviewWebsite = async () => {
     if (!customerId) {
       Alert.alert('Login Required', 'Please login to continue.', [
-        // {text: 'OK', onPress: () => router.navigate('/Login')},
+        // {text: 'OK', onPress: () => router.navigate('Login')},
       ]);
       return;
     }
@@ -360,10 +330,7 @@ const [categoryId, setCategoryId] = useState('');
           },
         ]);
 
-        // Store preview URL if needed
         await AsyncStorage.setItem('previewUrl', data.preview_url);
-
-        // Set preview as successful to enable deploy button
         setPreviewSuccessful(true);
       } else {
         Alert.alert('Error', 'Preview URL not found.', [{text: 'OK'}]);
@@ -450,7 +417,7 @@ const [categoryId, setCategoryId] = useState('');
   const handleGetPreviewURL = async () => {
     if (!customerId) {
       Alert.alert('Login Required', 'Please login to continue.', [
-        // {text: 'OK', onPress: () => router.navigate('/Login')},
+        // {text: 'OK', onPress: () => router.navigate('Login')},
       ]);
       return;
     }
@@ -480,12 +447,6 @@ const [categoryId, setCategoryId] = useState('');
               try {
                 Clipboard.setString(data.preview_url);
                 Alert.alert('Success', 'URL copied to clipboard');
-                // Optional Toast:
-                // Toast.show({
-                //   type: 'success',
-                //   text1: 'Copied to Clipboard',
-                //   text2: data.preview_url,
-                // });
               } catch (e) {
                 console.error('Failed to copy URL:', e);
                 Alert.alert('Error', 'Failed to copy URL');
@@ -511,6 +472,7 @@ const [categoryId, setCategoryId] = useState('');
       setPreviewUrlLoading(false);
     }
   };
+
   return (
     <ScrollView style={tw`flex-1 bg-white px-5 pb-24`}>
       <View style={tw`items-center mt-6 mb-6`}>
@@ -531,11 +493,11 @@ const [categoryId, setCategoryId] = useState('');
       {isDesktop ? (
         <View style={tw`flex-row w-full`}>
           <View style={tw`w-1/2 pr-4`}>
-            {buttonData.map(({icon, text, route}, index) => (
+            {buttonData.map(({ icon, text, route }, index) => (
               <TouchableOpacity
                 key={index}
                 style={tw`flex-row items-center border border-gray-300 rounded-lg px-10 py-6 bg-gray-100 mb-3 justify-center`}
-                onPress={() => handleNavigation(route as RouteType)}
+                onPress={() => handleNavigation(route)}
                 disabled={isAnyActionInProgress()}>
                 <FontAwesome
                   name={icon}
@@ -590,11 +552,11 @@ const [categoryId, setCategoryId] = useState('');
         </View>
       ) : (
         <View style={tw`w-full items-center pb-28`}>
-          {buttonData.map(({icon, text, route}, index) => (
+          {buttonData.map(({ icon, text, route }, index) => (
             <TouchableOpacity
               key={index}
               style={tw`flex-row items-center border border-gray-300 rounded-lg px-6 py-4 bg-gray-100 mb-3 w-full justify-center`}
-              onPress={() => handleNavigation(route as RouteType)}
+              onPress={() => handleNavigation(route)}
               disabled={isAnyActionInProgress()}>
               <FontAwesome name={icon} size={18} color="#1E40AF" />
               <Text style={tw`ml-2 text-base font-medium text-black`}>
@@ -640,25 +602,25 @@ const [categoryId, setCategoryId] = useState('');
         visible={modalVisible}
         onClose={() => setModalVisible(false)}
       />
-    <UploadImagesModal
-  visible={uploadModalVisible}
-  onClose={() => setUploadModalVisible(false)}
-  control={control}
-  formValues={formValues}
-  setFormValues={setFormValues}
-  isUploading={isUploading}
-  setIsUploading={setIsUploading}
-  handleFileUploadToAWS={handleFileUploadToAWS}
-  paymentQRVisible={true}
-  productImagesVisible={true}
-  customLogoVisible={true}
-  videosPageVisible={true}
-  saveUploadedImages={saveUploadedImages}
-  selectedGallerySlot={selectedGallerySlot}
-  setSelectedGallerySlot={setSelectedGallerySlot}
-  selectedProductSlot={selectedProductSlot}
-  setSelectedProductSlot={setSelectedProductSlot}
-/>
+      <UploadImagesModal
+        visible={uploadModalVisible}
+        onClose={() => setUploadModalVisible(false)}
+        control={control}
+        formValues={formValues}
+        setFormValues={setFormValues}
+        isUploading={isUploading}
+        setIsUploading={setIsUploading}
+        handleFileUploadToAWS={handleFileUploadToAWS}
+        paymentQRVisible={true}
+        productImagesVisible={true}
+        customLogoVisible={true}
+        videosPageVisible={true}
+        saveUploadedImages={saveUploadedImages}
+        selectedGallerySlot={selectedGallerySlot}
+        setSelectedGallerySlot={setSelectedGallerySlot}
+        selectedProductSlot={selectedProductSlot}
+        setSelectedProductSlot={setSelectedProductSlot}
+      />
     </ScrollView>
   );
 };
@@ -666,9 +628,9 @@ const [categoryId, setCategoryId] = useState('');
 export default UpdateWebsite;
 
 const buttonData = [
-  {icon: 'edit', text: 'Edit Customer Details', route: 'EditCustomer'},
-  {icon: 'th-large', text: 'Select Template', route: 'SelectTemplate'},
-  {icon: 'cog', text: 'Open Menu Settings', route: 'MenuSettings'},
-  {icon: 'upload', text: 'Upload Your Images', route: 'UploadImagesModal'},
-  {icon: 'refresh', text: 'Content Updation', route: 'Content'},
+  { icon: 'edit', text: 'Edit Customer Details', route: 'EditCustomer' },
+  { icon: 'th-large', text: 'Select Template', route: 'SelectTemplate' },
+  { icon: 'cog', text: 'Open Menu Settings', route: 'MenuSettings' },
+  { icon: 'upload', text: 'Upload Your Images', route: 'UploadImagesModal' },
+  { icon: 'refresh', text: 'Content Updation', route: 'Content' },
 ];
