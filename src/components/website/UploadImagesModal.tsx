@@ -179,50 +179,59 @@ export default function UploadImagesModal({
   const [videoUrls, setVideoUrls] = useState<string[]>(new Array(10).fill(''));
   const [isLocalUploading, setIsLocalUploading] = useState(false);
 
-  useEffect(() => {
-    const fetchCustIdAndCategoryId = async () => {
-      try {
-        const customerId = await AsyncStorage.getItem('customerId');
-        if (customerId) {
-          setCustId(customerId);
-          console.log('Customer ID fetched:', customerId);
-
-          const response = await fetch(
-            `${API_IP_ADDRESS}/api/get-category-id?cust_id=${encodeURIComponent(customerId)}`
-          );
-          const result = await response.json();
-
-          if (response.ok && result.category_id) {
-            setCategoryId(result.category_id);
-            console.log('Category ID fetched:', result.category_id);
-          } else {
-            console.error('Category ID not found for customer:', customerId);
-            Toast.show({
-              type: 'error',
-              text1: 'Error',
-              text2: 'Category ID not found. Please try again.',
-            });
-          }
-        } else {
-          console.error('No customer ID found in AsyncStorage');
-          Toast.show({
-            type: 'error',
-            text1: 'Error',
-            text2: 'Customer ID not found. Please log in.',
-          });
-        }
-      } catch (error) {
-        console.error('Error fetching custId or categoryId:', error.message || error);
+ useEffect(() => {
+  const fetchCustIdAndCategoryId = async () => {
+    try {
+      const customerId = await AsyncStorage.getItem('customerId');
+      if (!customerId) {
+        console.error('No customer ID found in AsyncStorage');
         Toast.show({
           type: 'error',
           text1: 'Error',
-          text2: 'Failed to fetch customer or category ID.',
+          text2: 'Customer ID not found. Please log in.',
+        });
+        return;
+      }
+
+      setCustId(customerId);
+      console.log('Customer ID fetched:', customerId);
+
+      if (!API_IP_ADDRESS) {
+        console.error('API_IP_ADDRESS is not defined');
+        return;
+      }
+
+      const response = await fetch(
+        `${API_IP_ADDRESS}/api/get-category-id?cust_id=${encodeURIComponent(customerId)}`
+      );
+      const result = await response.json();
+      console.log('Full response from API:', result);
+
+      const categoryIdFromApi = result?.category_id || result?.data?.category_id;
+
+      if (response.ok && categoryIdFromApi) {
+        setCategoryId(categoryIdFromApi);
+        console.log('Category ID fetched:', categoryIdFromApi);
+      } else {
+        console.error('Category ID not found for customer:', customerId);
+        Toast.show({
+          type: 'error',
+          text1: 'Error',
+          text2: 'Category ID not found. Please try again.',
         });
       }
-    };
+    } catch (error) {
+      console.error('Error fetching custId or categoryId:', error.message || error);
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'Failed to fetch customer or category ID.',
+      });
+    }
+  };
 
-    fetchCustIdAndCategoryId();
-  }, []);
+  fetchCustIdAndCategoryId();
+}, []);
 
   const fetchImagesFromDatabase = async (frontendCategory: string) => {
     try {
@@ -634,15 +643,16 @@ const handleSaveUploadedImages = async () => {
   taglines: formValues.taglines || {} // optional, send taglines if available
 };
     console.log('Sending to backend:', payload);
-
-    await fetch(`${API_IP_ADDRESS}/api/save-uploaded-images`, {
+const response = await fetch(`${API_IP_ADDRESS}/api/save-uploaded-images`, {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify(payload),
 });
 
+if (!response.ok) {
 
-    if (!response.ok) {
+
+  
       const errorText = await response.text();
       console.error('Backend error response:', errorText);
       throw new Error(`Failed to save images to backend: ${errorText || response.statusText}`);
@@ -673,9 +683,9 @@ const handleSaveUploadedImages = async () => {
 
   const renderButton = (title: string, onPress: () => void) => (
     <TouchableOpacity
-      style={tw`bg-blue-600 flex-row justify-between items-center p-3 rounded mb-2.5 w-full`}
+      style={tw.style(`bg-blue-600 flex-row justify-between items-center p-3 rounded mb-2.5 w-full`)}
       onPress={onPress}>
-      <Text style={tw`text-white font-medium`}>{title}</Text>
+      <Text style={tw.style(`text-white font-medium`)}>{title}</Text>
       <Ionicons name="cloud-upload-outline" size={20} color="white" />
     </TouchableOpacity>
   );
@@ -702,9 +712,9 @@ const handleSaveUploadedImages = async () => {
     const thumbnailUrl = isVideo ? getVideoThumbnail(mediaURL) : null;
 
     return (
-      <View style={tw`relative mb-2.5 w-24 h-24`}>
+      <View style={tw.style(`relative mb-2.5 w-24 h-24`)}>
         <TouchableOpacity
-          style={tw`absolute top-1 right-1 bg-red-500 rounded-full w-6 h-6 justify-center items-center z-10`}
+          style={tw.style(`absolute top-1 right-1 bg-red-500 rounded-full w-6 h-6 justify-center items-center z-10`)}
           onPress={() => {
             if (category === 'gallery' && index >= 0) {
               const updatedImages = [...(formValues.uploadedImages[category] || [])];
@@ -743,23 +753,23 @@ const handleSaveUploadedImages = async () => {
         </TouchableOpacity>
 
         {isVideo ? (
-          <View style={tw`w-24 h-24 bg-gray-100 justify-center items-center rounded overflow-hidden`}>
+          <View style={tw.style(`w-24 h-24 bg-gray-100 justify-center items-center rounded overflow-hidden`)}>
             {thumbnailUrl ? (
               <>
                 <Image
                   source={{uri: thumbnailUrl}}
                   style={[
-                    tw`w-24 h-24 absolute`,
-                    isSelected && tw`border-2 border-blue-500`
+                    tw.style(`w-24 h-24 absolute`),
+                    isSelected && tw.style(`border-2 border-blue-500`)
                   ]}
                 />
-                <View style={tw`w-10 h-10 bg-black bg-opacity-50 rounded-full justify-center items-center`}>
+                <View style={tw.style(`w-10 h-10 bg-black bg-opacity-50 rounded-full justify-center items-center`)}>
                   <Ionicons name="play" size={20} color="white" />
                 </View>
               </>
             ) : (
               <>
-                <Text style={tw`mb-1 text-xs text-center`}>Video</Text>
+                <Text style={tw.style(`mb-1 text-xs text-center`)}>Video</Text>
                 <Ionicons name="play-circle-outline" size={24} color="black" />
               </>
             )}
@@ -768,8 +778,8 @@ const handleSaveUploadedImages = async () => {
           <Image
             source={{uri: mediaURL}}
             style={[
-              tw`w-24 h-24 rounded`,
-              isSelected && tw`border-2 border-blue-500`
+              tw.style(`w-24 h-24 rounded`),
+              isSelected && tw.style(`border-2 border-blue-500`)
             ]}
           />
         )}
@@ -782,16 +792,16 @@ const handleSaveUploadedImages = async () => {
     if (!images.length) return null;
 
     return (
-      <View style={tw`mt-4 mb-2`}>
-        <Text style={tw`text-sm font-medium mb-2`}>Gallery Preview:</Text>
-        <View style={tw`flex-row flex-wrap`}>
+      <View style={tw.style(`mt-4 mb-2`)}>
+        <Text style={tw.style(`text-sm font-medium mb-2`)}>Gallery Preview:</Text>
+        <View style={tw.style(`flex-row flex-wrap`)}>
           {Array(6).fill(null).map((_, index) => (
             <View key={`gallery-preview-${index}`} style={tw`m-1`}>
               {images[index] ? (
                 renderMedia(images[index], 'gallery', index)
               ) : (
-                <View style={tw`w-24 h-24 bg-gray-200 rounded justify-center items-center`}>
-                  <Text style={tw`text-gray-500 text-xs`}>Empty Slot {index + 1}</Text>
+                <View style={tw.style(`w-24 h-24 bg-gray-200 rounded justify-center items-center`)}>
+                  <Text style={tw.style(`text-gray-500 text-xs`)}>Empty Slot {index + 1}</Text>
                 </View>
               )}
             </View>
@@ -806,16 +816,16 @@ const handleSaveUploadedImages = async () => {
     if (!images.length) return null;
 
     return (
-      <View style={tw`mt-4 mb-2`}>
-        <Text style={tw`text-sm font-medium mb-2`}>Products Preview:</Text>
-        <View style={tw`flex-row flex-wrap`}>
+      <View style={tw.style(`mt-4 mb-2`)}>
+        <Text style={tw.style(`text-sm font-medium mb-2`)}>Products Preview:</Text>
+        <View style={tw.style(`flex-row flex-wrap`)}>
           {Array(5).fill(null).map((_, index) => (
-            <View key={`products-preview-${index}`} style={tw`m-1`}>
+            <View key={`products-preview-${index}`} style={tw.style(`m-1`)}>
               {images[index] ? (
                 renderMedia(images[index], 'products', index)
               ) : (
-                <View style={tw`w-24 h-24 bg-gray-200 rounded justify-center items-center`}>
-                  <Text style={tw`text-gray-500 text-xs`}>Empty Slot {index + 1}</Text>
+                <View style={tw.style(`w-24 h-24 bg-gray-200 rounded justify-center items-center`)}>
+                  <Text style={tw.style(`text-gray-500 text-xs`)}>Empty Slot {index + 1}</Text>
                 </View>
               )}
             </View>
@@ -841,11 +851,11 @@ const handleSaveUploadedImages = async () => {
     if (images.length === 0) return null;
 
     return (
-      <View style={tw`mt-4 mb-2`}>
-        <Text style={tw`text-sm font-medium mb-2`}>{title} Preview:</Text>
-        <View style={tw`flex-row flex-wrap`}>
+      <View style={tw.style(`mt-4 mb-2`)}>
+        <Text style={tw.style(`text-sm font-medium mb-2`)}>{title} Preview:</Text>
+        <View style={tw.style(`flex-row flex-wrap`)}>
           {images.map((url: string, index: number) => (
-            <View key={`${category}-${index}`} style={tw`m-1`}>
+            <View key={`${category}-${index}`} style={tw.style(`m-1`)}>
               {url && renderMedia(url, category)}
             </View>
           ))}
@@ -861,17 +871,17 @@ const handleSaveUploadedImages = async () => {
         animationType="slide"
         transparent={false}
         onRequestClose={onClose}>
-        <View style={tw`flex-1 bg-white`}>
-          <View style={tw`flex-row justify-between items-center p-4 border-b border-gray-200`}>
-            <Text style={tw`text-lg font-bold`}>Upload Images</Text>
+        <View style={tw.style(`flex-1 bg-white`)}>
+          <View style={tw.style(`flex-row justify-between items-center p-4 border-b border-gray-200`)}>
+            <Text style={tw.style(`text-lg font-bold`)}>Upload Images</Text>
             <TouchableOpacity onPress={onClose}>
               <Ionicons name="close" size={24} color="black" />
             </TouchableOpacity>
           </View>
 
-          <ScrollView style={tw`p-4`}>
-            <View style={tw`bg-blue-50 border border-gray-300 rounded-md p-4`}>
-              <Text style={tw`text-base font-medium mb-4`}>Upload Images</Text>
+          <ScrollView style={tw.style(`p-4`)}>
+            <View style={tw.style(`bg-blue-50 border border-gray-300 rounded-md p-4`)}>
+              <Text style={tw.style(`text-base font-medium mb-4`)}>Upload Images</Text>
 
               <Controller
                 name="uploadedImages"
@@ -879,24 +889,24 @@ const handleSaveUploadedImages = async () => {
                 render={({field: {onChange}}) => (
                   <>
                     {customLogoVisible && (
-                      <View style={tw`mb-4`}>
+                      <View style={tw.style(`mb-4`)}>
                         {renderButton('Upload Custom Logo', () => handleUploadImage('logo'))}
                         {renderPreviewSection('logo', 'Logo')}
                       </View>
                     )}
 
-                    <View style={tw`mb-4`}>
+                    <View style={tw.style(`mb-4`)}>
                       {renderButton('Upload Landing Page Image', () => handleUploadImage('landingPage'))}
                       {renderPreviewSection('landingPage', 'Landing Page')}
                     </View>
 
-                    <View style={tw`mb-4`}>
+                    <View style={tw.style(`mb-4`)}>
                       {renderButton('Upload About Us Image', () => handleUploadImage('aboutUs'))}
                       {renderPreviewSection('aboutUs', 'About Us')}
                     </View>
 
-                    <View style={tw`mb-4`}>
-                      <Text style={tw`text-base font-medium mb-2`}>Gallery Images (6 slots)</Text>
+                    <View style={tw.style(`mb-4`)}>
+                      <Text style={tw.style(`text-base font-medium mb-2`)}>Gallery Images (6 slots)</Text>
                       {[1, 2, 3, 4, 5, 6].map(slot => (
                         <React.Fragment key={`gallery-${slot}`}>
                           {renderButton(`Upload Gallery Image ${slot}`, () => {
@@ -912,8 +922,8 @@ const handleSaveUploadedImages = async () => {
                     </View>
 
                     {productImagesVisible && (
-                      <View style={tw`mb-4`}>
-                        <Text style={tw`text-base font-medium mb-2`}>Product Images (5 slots)</Text>
+                      <View style={tw.style(`mb-4`)}>
+                        <Text style={tw.style(`text-base font-medium mb-2`)}>Product Images (5 slots)</Text>
                         {[1, 2, 3, 4, 5].map(slot => (
                           <React.Fragment key={`product-${slot}`}>
                             {renderButton(`Upload Product Image ${slot}`, () => handleUploadProductImage(slot))}
@@ -924,32 +934,32 @@ const handleSaveUploadedImages = async () => {
                     )}
 
                     {paymentQRVisible && (
-                      <View style={tw`mb-4`}>
+                      <View style={tw.style(`mb-4`)}>
                         {renderButton('Upload Payment QR Image', () => handleUploadImage('paymentQR'))}
                         {renderPreviewSection('paymentQR', 'Payment QR')}
                       </View>
                     )}
 
-                    <View style={tw`mb-4`}>
+                    <View style={tw.style(`mb-4`)}>
                       {renderButton('Upload Items (Max 5)', () => handleUploadImage('items'))}
                       {renderPreviewSection('items', 'Items')}
                     </View>
 
                     {videosPageVisible && (
-                      <View style={tw`mb-4`}>
+                      <View style={tw.style(`mb-4`)}>
                         {renderButton('Upload Video', () => handleUploadImage('videos'))}
                         {renderPreviewSection('videos', 'Videos')}
                       </View>
                     )}
 
                     {formValues.uploadedImages?.items?.length > 0 && (
-                      <View style={tw`mb-4`}>
-                        <Text style={tw`text-base font-medium mb-2`}>Item Prices</Text>
+                      <View style={tw.style(`mb-4`)}>
+                        <Text style={tw.style(`text-base font-medium mb-2`)}>Item Prices</Text>
                         {formValues.uploadedImages?.items?.map(
                           (imageURL: string, index: number) => (
                             <TextInput
                               key={index}
-                              style={tw`bg-white border border-gray-300 rounded p-2.5 mb-2.5`}
+                              style={tw.style(`bg-white border border-gray-300 rounded p-2.5 mb-2.5`)}
                               placeholder={`ITEM PRICE ${index + 1}`}
                               value={formValues[`arg_oss_url_${index + 1}`] || ''}
                               onChangeText={text =>
@@ -965,17 +975,17 @@ const handleSaveUploadedImages = async () => {
                     )}
 
                     <TouchableOpacity
-                      style={tw`${
+                      style={tw.style(`${
                         isUploading ? 'bg-gray-400' : 'bg-green-500'
-                      } p-4 rounded justify-center items-center mt-4 flex-row`}
+                      } p-4 rounded justify-center items-center mt-4 flex-row`)}
                       onPress={handleSaveUploadedImages}
                       disabled={isUploading}>
                       {isUploading ? (
-                        <ActivityIndicator color="white" style={tw`mr-2`} />
+                        <ActivityIndicator color="white" style={tw.style(`mr-2`)} />
                       ) : (
-                        <Ionicons name="save" size={20} color="white" style={tw`mr-2`} />
+                        <Ionicons name="save" size={20} color="white" style={tw.style(`mr-2`)} />
                       )}
-                      <Text style={tw`text-white font-medium`}>
+                      <Text style={tw.style(`text-white font-medium`)}>
                         {isUploading ? 'Uploading...' : 'Save All Images'}
                       </Text>
                     </TouchableOpacity>
@@ -987,127 +997,127 @@ const handleSaveUploadedImages = async () => {
         </View>
       </Modal>
 
-      <Modal
-        visible={showImageSelection}
-        animationType="slide"
-        transparent={false}
-        onRequestClose={() => setShowImageSelection(false)}>
-        <View style={tw`flex-1 bg-white`}>
-          <View style={tw`flex-row justify-between items-center p-4 border-b border-gray-200`}>
-            <Text style={tw`text-lg font-bold`}>
-              {selectedCategory === 'videos'
-                ? 'Upload Videos'
-                : `Upload ${selectedCategory} Image`}
-            </Text>
-            <TouchableOpacity onPress={() => setShowImageSelection(false)}>
-              <Ionicons name="close" size={24} color="black" />
-            </TouchableOpacity>
-          </View>
+     <Modal
+      visible={showImageSelection}
+      animationType="slide"
+      transparent={false}
+      onRequestClose={() => setShowImageSelection(false)}>
+      <View style={tw.style(`flex-1 bg-white`)}>
+        <View style={tw.style(`flex-row justify-between items-center p-4 border-b border-gray-200`)}>
+          <Text style={tw.style(`text-lg font-bold`)}>
+            {selectedCategory === 'videos'
+              ? 'Upload Videos'
+              : `Upload ${selectedCategory} Image`}
+          </Text>
+          <TouchableOpacity onPress={() => setShowImageSelection(false)}>
+            <Ionicons name="close" size={24} color="black" />
+          </TouchableOpacity>
+        </View>
 
-          <ScrollView style={tw`p-4`}>
-            {selectedCategory === 'videos' ? (
-              <View style={tw`mb-4`}>
-                <Text style={tw`text-base font-medium mb-2`}>Enter YouTube Video URLs:</Text>
-                {videoUrls.slice(0, categoryLimits.videos).map((url, index) => (
-                  <TextInput
-                    key={`video-url-${index}`}
-                    style={tw`border border-gray-300 rounded p-2.5 mb-2.5`}
-                    placeholder={`YouTube Video URL ${index + 1}`}
-                    value={url}
-                    onChangeText={(text) => handleUrlChange(text, index)}
-                  />
-                ))}
-
-                <View style={tw`flex-row justify-between mt-4`}>
-                  <TouchableOpacity
-                    style={tw`bg-blue-500 p-3 rounded flex-1 mr-2 justify-center items-center`}
-                    onPress={handleSelectItemImages}>
-                    <Text style={tw`text-white`}>Upload Video from Device</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={tw`bg-green-500 p-3 rounded flex-1 ml-2 justify-center items-center`}
-                    onPress={handleSaveUrls}>
-                    <Text style={tw`text-white`}>Save URLs</Text>
-                  </TouchableOpacity>
+        {/* Videos section */}
+        {selectedCategory === 'videos' ? (
+          <ScrollView style={tw.style(`p-4`)}>
+            <Text style={tw.style(`text-base font-medium mb-2`)}>Enter YouTube Video URLs:</Text>
+            {videoUrls.slice(0, categoryLimits.videos).map((url, index) => (
+              <TextInput
+                key={`video-url-${index}`}
+                style={tw.style(`border border-gray-300 rounded p-2.5 mb-2.5`)}
+                placeholder={`YouTube Video URL ${index + 1}`}
+                value={url}
+                onChangeText={text => handleUrlChange(text, index)}
+              />
+            ))}
+            <View style={tw.style(`flex-row justify-between mt-4`)}>
+              <TouchableOpacity
+                style={tw.style(`bg-blue-500 p-3 rounded flex-1 mr-2 justify-center items-center`)}
+                onPress={handleSelectItemImages}>
+                <Text style={tw.style(`text-white`)}>Upload Video from Device</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={tw.style(`bg-green-500 p-3 rounded flex-1 ml-2 justify-center items-center`)}
+                onPress={handleSaveUrls}>
+                <Text style={tw.style(`text-white`)}>Save URLs</Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+        ) : (
+          <>
+            {/* Show option toggle if not logo/paymentQR/items */}
+            {selectedCategory !== 'logo' &&
+              selectedCategory !== 'paymentQR' &&
+              selectedCategory !== 'items' && (
+                <View style={tw.style(`p-4`)}>
+                  <View style={tw.style(`flex-row items-center mb-2`)}>
+                    <RadioButton
+                      value="custom"
+                      status={selectedOption === 'custom' ? 'checked' : 'unchecked'}
+                      onPress={() => setSelectedOption('custom')}
+                      color="#2563eb"
+                    />
+                    <Text style={tw.style(`ml-2`)}>Upload from device</Text>
+                  </View>
+                  <View style={tw.style(`flex-row items-center`)}>
+                    <RadioButton
+                      value="database"
+                      status={selectedOption === 'database' ? 'checked' : 'unchecked'}
+                      onPress={() => setSelectedOption('database')}
+                      color="#2563eb"
+                    />
+                    <Text style={tw.style(`ml-2`)}>Choose from available images</Text>
+                  </View>
                 </View>
+              )}
+
+            {/* Upload from Device */}
+            {selectedOption === 'custom' ? (
+              <View style={tw.style(`p-4`)}>
+                <TouchableOpacity
+                  style={tw.style(`bg-blue-600 p-4 rounded justify-center items-center flex-row mb-4`)}
+                  onPress={handleSelectItemImages}
+                  disabled={isLocalUploading}>
+                  {isLocalUploading ? (
+                    <ActivityIndicator color="white" style={tw.style(`mr-2`)} />
+                  ) : (
+                    <Ionicons name="image-outline" size={20} color="white" style={tw.style(`mr-2`)} />
+                  )}
+                  <Text style={tw.style(`text-white font-medium`)}>
+                    {isLocalUploading ? 'Uploading...' : 'Select from Device'}
+                  </Text>
+                </TouchableOpacity>
               </View>
             ) : (
-              <>
-                {selectedCategory !== 'logo' && selectedCategory !== 'paymentQR' && selectedCategory !== 'items' && (
-                  <View style={tw`mb-4`}>
-                    <View style={tw`flex-row items-center mb-2`}>
-                      <RadioButton
-                        value="custom"
-                        status={selectedOption === 'custom' ? 'checked' : 'unchecked'}
-                        onPress={() => setSelectedOption('custom')}
-                        color="#2563eb"
-                      />
-                      <Text style={tw`ml-2`}>Upload from device</Text>
-                    </View>
-                    <View style={tw`flex-row items-center`}>
-                      <RadioButton
-                        value="database"
-                        status={selectedOption === 'database' ? 'checked' : 'unchecked'}
-                        onPress={() => setSelectedOption('database')}
-                        color="#2563eb"
-                      />
-                      <Text style={tw`ml-2`}>Choose from available images</Text>
-                    </View>
-                  </View>
-                )}
-
-                {selectedOption === 'custom' ? (
+              // Select from Database using FlatList
+              <FlatList
+                contentContainerStyle={tw.style(`p-4`)}
+                data={databaseImages}
+                numColumns={3}
+                renderItem={({item}) => (
                   <TouchableOpacity
-                    style={tw`bg-blue-600 p-4 rounded justify-center items-center flex-row mb-4`}
-                    onPress={handleSelectItemImages}
-                    disabled={isLocalUploading}>
-                    {isLocalUploading ? (
-                      <ActivityIndicator color="white" style={tw`mr-2`} />
-                    ) : (
-                      <Ionicons name="image-outline" size={20} color="white" style={tw`mr-2`} />
-                    )}
-                    <Text style={tw`text-white font-medium`}>
-                      {isLocalUploading ? 'Uploading...' : 'Select from Device'}
-                    </Text>
+                    style={tw.style(`m-1`)}
+                    onPress={() => handleSelectImage(item.url, selectedCategory)}>
+                    <Image
+                      source={{uri: item.url}}
+                      style={[
+                        tw.style(`w-24 h-24 rounded`),
+                        formValues.uploadedImages[selectedCategory]?.includes(item.url) &&
+                          tw.style(`border-2 border-blue-500`),
+                      ]}
+                    />
                   </TouchableOpacity>
-                ) : (
-                  <>
-                    {databaseImages.length > 0 ? (
-                      <FlatList
-                        data={databaseImages}
-                        numColumns={3}
-                        renderItem={({item}) => (
-                          <TouchableOpacity
-                            style={tw`m-1`}
-                            onPress={() => handleSelectImage(item.url, selectedCategory)}>
-                            <Image
-                              source={{uri: item.url}}
-                              style={[
-                                tw`w-24 h-24 rounded`,
-                                formValues.uploadedImages[selectedCategory]?.includes(item.url) &&
-                                  tw`border-2 border-blue-500`,
-                              ]}
-                            />
-                          </TouchableOpacity>
-                        )}
-                        keyExtractor={(item, index) => `db-image-${index}`}
-                        ListEmptyComponent={
-                          <Text style={tw`text-center text-gray-500 my-4`}>No images available</Text>
-                        }
-                      />
-                    ) : (
-                      <View style={tw`justify-center items-center py-10`}>
-                        <ActivityIndicator size="large" color="#4b5563" />
-                        <Text style={tw`text-gray-500 mt-4`}>Loading images...</Text>
-                      </View>
-                    )}
-                  </>
                 )}
-              </>
+                keyExtractor={(item, index) => `db-image-${index}`}
+                ListEmptyComponent={
+                  <View style={tw.style(`justify-center items-center py-10`)}>
+                    <ActivityIndicator size="large" color="#4b5563" />
+                    <Text style={tw.style(`text-gray-500 mt-4`)}>Loading images...</Text>
+                  </View>
+                }
+              />
             )}
-          </ScrollView>
-        </View>
-      </Modal>
+          </>
+        )}
+      </View>
+    </Modal>
     </>
   );
 }

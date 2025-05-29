@@ -177,20 +177,20 @@ const TemplateSelectionScreen = (props: TemplateSelectionScreenProps) => {
       <TouchableOpacity
         key={template.template_id}
         style={[
-          tw`${isLargeScreen ? 'w-1/3 p-2' : 'w-full mb-4'} rounded-md`,
+          tw.style(`${isLargeScreen ? 'w-1/3 p-2' : 'w-full mb-4'} rounded-md`,
           {
             shadowColor: '#000',
             shadowOffset: {width: 0, height: 2},
             shadowOpacity: 0.1,
             shadowRadius: 3,
             elevation: 2,
-          },
+          }),
         ]}
         onPress={() => handlePreviewClick(template.template_id)}>
         <View
-          style={tw`p-3 rounded-md ${isSelected ? 'bg-blue-500' : 'bg-white'}`}>
+          style={tw.style(`p-3 rounded-md ${isSelected ? 'bg-blue-500' : 'bg-white'}`)}>
           <View
-            style={tw`bg-gray-100 rounded-lg p-2 mb-2 h-36 overflow-hidden`}>
+            style={tw.style(`bg-gray-100 rounded-lg p-2 mb-2 h-36 overflow-hidden`)}>
             {hasError ? (
               <View style={tw`flex-1 items-center justify-center`}>
                 <Text style={tw`text-gray-500`}>Template Preview</Text>
@@ -200,9 +200,9 @@ const TemplateSelectionScreen = (props: TemplateSelectionScreenProps) => {
             )}
           </View>
           <Text
-            style={tw`text-center text-sm ${
+            style={tw.style(`text-center text-sm ${
               isSelected ? 'text-white' : 'text-gray-500'
-            }`}>
+            }`)}>
             ID: {template.template_id}
           </Text>
         </View>
@@ -219,39 +219,39 @@ const TemplateSelectionScreen = (props: TemplateSelectionScreenProps) => {
       : '';
 
     return (
-      <SafeAreaView style={tw`flex-1 bg-white`}>
+      <SafeAreaView style={tw.style(`flex-1 bg-white`)}>
         <View
-          style={tw`flex-row justify-between items-center p-4 border-b border-gray-200`}>
-          <Text style={tw`text-xl font-bold`}>
+          style={tw.style(`flex-row justify-between items-center p-4 border-b border-gray-200`)}>
+          <Text style={tw.style(`text-xl font-bold`)}>
             Template Preview: {previewTemplateId}
           </Text>
           <TouchableOpacity onPress={closePreview}>
-            <Text style={tw`text-blue-500 font-medium`}>Close</Text>
+            <Text style={tw.style(`text-blue-500 font-medium`)}>Close</Text>
           </TouchableOpacity>
         </View>
 
-        <View style={tw`flex-1 bg-gray-100 m-4 rounded-lg overflow-hidden`}>
+        <View style={tw.style(`flex-1 bg-gray-100 m-4 rounded-lg overflow-hidden`)}>
           <TemplatePreview uri={previewUrl} />
         </View>
 
-        <View style={tw`flex-row justify-between px-4 pb-4`}>
+        <View style={tw.style(`flex-row justify-between px-4 pb-4`)}>
           <TouchableOpacity
-            style={tw`px-4 py-2 rounded-md bg-gray-200`}
+            style={tw.style(`px-4 py-2 rounded-md bg-gray-200`)}
             onPress={closePreview}>
-            <Text style={tw`text-center font-medium`}>Back to Selection</Text>
+            <Text style={tw.style(`text-center font-medium`)}>Back to Selection</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={tw`px-4 py-2 rounded-md bg-blue-500`}
+            style={tw.style(`px-4 py-2 rounded-md bg-blue-500`)}
             onPress={handleSubmit}
             disabled={saving}>
             {saving ? (
-              <View style={tw`flex-row justify-center items-center px-2`}>
+              <View style={tw.style(`flex-row justify-center items-center px-2`)}>
                 <ActivityIndicator size="small" color="#FFFFFF" />
-                <Text style={tw`text-white font-medium ml-2`}>Saving...</Text>
+                <Text style={tw.style(`text-white font-medium ml-2`)}>Saving...</Text>
               </View>
             ) : (
-              <Text style={tw`text-white font-medium`}>Save This Template</Text>
+              <Text style={tw.style(`text-white font-medium`)}>Save This Template</Text>
             )}
           </TouchableOpacity>
         </View>
@@ -260,27 +260,27 @@ const TemplateSelectionScreen = (props: TemplateSelectionScreenProps) => {
   }
 
   return (
-    <SafeAreaView style={tw`flex-1 bg-white`}>
+    <SafeAreaView style={tw.style(`flex-1 bg-white`)}>
       <View
-        style={tw`flex-row justify-between items-center p-4 border-b border-gray-200`}>
-        <Text style={tw`text-xl font-bold`}>Select Template</Text>
+        style={tw.style(`flex-row justify-between items-center p-4 border-b border-gray-200`)}>
+        <Text style={tw.style(`text-xl font-bold`)}>Select Template</Text>
         <TouchableOpacity onPress={handleCancel}>
-          <Text style={tw`text-blue-500 font-medium`}>Cancel</Text>
+          <Text style={tw.style(`text-blue-500 font-medium`)}>Cancel</Text>
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={tw`flex-1 p-4`}>
-        <View style={tw`border border-gray-200 p-4 rounded-md`}>
+      <ScrollView style={tw.style(`flex-1 p-4`)}>
+        <View style={tw.style(`border border-gray-200 p-4 rounded-md`)}>
           {loading ? (
-            <View style={tw`items-center justify-center py-8`}>
+            <View style={tw.style(`items-center justify-center py-8`)}>
               <ActivityIndicator size="large" color="#007BFF" />
-              <Text style={tw`mt-2 text-gray-600`}>Loading templates...</Text>
+              <Text style={tw.style(`mt-2 text-gray-600`)}>Loading templates...</Text>
             </View>
           ) : (
             <View
-              style={tw`flex-row flex-wrap ${
+              style={tw.style(`flex-row flex-wrap ${
                 isLargeScreen ? 'justify-start' : 'justify-between'
-              }`}>
+              }`)}>
               {templates.map(template => (
                 <TemplateGridItem
                   key={template.template_id}
@@ -293,18 +293,18 @@ const TemplateSelectionScreen = (props: TemplateSelectionScreenProps) => {
       </ScrollView>
 
       <TouchableOpacity
-        style={tw`mx-4 mb-4 p-3 rounded-md ${
+        style={tw.style(`mx-4 mb-4 p-3 rounded-md ${
           selectedTemplateId ? 'bg-blue-500' : 'bg-gray-300'
-        }`}
+        }`)}
         onPress={handleSubmit}
         disabled={!selectedTemplateId || saving}>
         {saving ? (
-          <View style={tw`flex-row justify-center items-center`}>
+          <View style={tw.style(`flex-row justify-center items-center`)}>
             <ActivityIndicator size="small" color="#FFFFFF" />
-            <Text style={tw`text-white font-medium ml-2`}>Saving...</Text>
+            <Text style={tw.style(`text-white font-medium ml-2`)}>Saving...</Text>
           </View>
         ) : (
-          <Text style={tw`text-white font-medium text-center`}>
+          <Text style={tw.style(`text-white font-medium text-center`)}>
             Save Selected Template
           </Text>
         )}

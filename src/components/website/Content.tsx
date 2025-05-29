@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -13,8 +13,8 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import tw from 'twrnc';
 
-import {useNavigation} from '@react-navigation/native';
-import {API_IP_ADDRESS} from '../../../config';
+import { useNavigation } from '@react-navigation/native';
+import { API_IP_ADDRESS } from '../../../config';
 import Toast from 'react-native-toast-message';
 
 interface AIContentData {
@@ -33,10 +33,7 @@ type UpdateAIContentModalProps = {
   onClose: () => void;
 };
 
-const UpdateAIContentModal = ({
-  visible,
-  onClose,
-}: UpdateAIContentModalProps) => {
+const UpdateAIContentModal = ({ visible, onClose }: UpdateAIContentModalProps) => {
   const navigation = useNavigation();
   const [data, setData] = useState<AIContentData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -52,7 +49,6 @@ const UpdateAIContentModal = ({
     try {
       setLoading(true);
       const custId = await AsyncStorage.getItem('customerId');
-      console.log('ID:', custId);
       if (custId) {
         setCustomerId(custId);
         fetchCategoryId(custId);
@@ -71,9 +67,7 @@ const UpdateAIContentModal = ({
     try {
       setLoading(true);
       const response = await fetch(
-        `${API_IP_ADDRESS}/api/get-category-id?cust_id=${encodeURIComponent(
-          custId,
-        )}`,
+        `${API_IP_ADDRESS}/api/get-category-id?cust_id=${encodeURIComponent(custId)}`
       );
       const result = await response.json();
 
@@ -90,14 +84,13 @@ const UpdateAIContentModal = ({
       Alert.alert('Error retrieving category information.');
     }
   };
-  console.log('Customer ID:', customerId);
-  console.log('Category ID:', categoryId);
+
   const fetchContentWithIds = async (custId: string, catId: string) => {
     try {
       const response = await fetch(
         `${API_IP_ADDRESS}/get-ai-content?cust_id=${encodeURIComponent(
-          custId,
-        )}&category_id=${encodeURIComponent(catId)}`,
+          custId
+        )}&category_id=${encodeURIComponent(catId)}`
       );
       const result = await response.json();
 
@@ -120,8 +113,8 @@ const UpdateAIContentModal = ({
       setLoading(true);
       fetch(
         `${API_IP_ADDRESS}/get-ai-content?cust_id=${encodeURIComponent(
-          customerId,
-        )}&category_id=${encodeURIComponent(categoryId)}`,
+          customerId
+        )}&category_id=${encodeURIComponent(categoryId)}`
       )
         .then(res => res.json())
         .then(result => {
@@ -165,7 +158,7 @@ const UpdateAIContentModal = ({
   };
 
   const handleChange = (field: keyof AIContentData, value: string) => {
-    setData(prev => (prev ? {...prev, [field]: value} : null));
+    setData(prev => (prev ? { ...prev, [field]: value } : null));
   };
 
   const handleSubmit = () => {
@@ -173,8 +166,8 @@ const UpdateAIContentModal = ({
       setLoading(true);
       fetch(`${API_IP_ADDRESS}/update-ai-content`, {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({customerId, category_id: categoryId, ...data}),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ customerId, category_id: categoryId, ...data }),
       })
         .then(res => res.json())
         .then(result => {
@@ -238,10 +231,8 @@ const UpdateAIContentModal = ({
             <Ionicons name="arrow-back" size={20} color="#3b82f6" />
             <Text style={tw`ml-2 text-blue-600 font-medium`}>Back</Text>
           </TouchableOpacity>
-          <Text style={tw`text-xl font-bold text-gray-800`}>
-            Update Content
-          </Text>
-          <View style={tw`w-10`} /> {/* Spacer */}
+          <Text style={tw`text-xl font-bold text-gray-800`}>Update Content</Text>
+          <View style={tw`w-10`} />
         </View>
 
         {loading ? (
@@ -286,8 +277,7 @@ const UpdateAIContentModal = ({
                 <TouchableOpacity
                   onPress={handleFetchContent}
                   style={tw`bg-green-500 py-3 rounded-xl mt-2`}>
-                  <Text
-                    style={tw`text-white text-center text-base font-semibold`}>
+                  <Text style={tw`text-white text-center text-base font-semibold`}>
                     Refresh Content
                   </Text>
                 </TouchableOpacity>
@@ -298,9 +288,9 @@ const UpdateAIContentModal = ({
             {initialFetched && data && (
               <View style={tw`mt-2`}>
                 {[
-                  {key: 'ai2human_generated_text_1', label: 'Landing Image'},
-                  {key: 'ai2human_generated_text_10', label: 'About Us'},
-                ].map(({key, label}) => (
+                  { key: 'ai2human_generated_text_1', label: 'Landing Image' },
+                  { key: 'ai2human_generated_text_10', label: 'About Us' },
+                ].map(({ key, label }) => (
                   <View key={key} style={tw`mb-5`}>
                     <Text style={tw`text-sm text-gray-700 font-semibold mb-1`}>
                       {label}
@@ -309,22 +299,17 @@ const UpdateAIContentModal = ({
                       multiline
                       numberOfLines={4}
                       value={data[key]}
-                      onChangeText={text =>
-                        handleChange(key as keyof typeof data, text)
-                      }
+                      onChangeText={text => handleChange(key, text)}
                       style={tw`border border-gray-300 rounded-xl px-4 py-3 text-gray-800 h-32`}
                     />
                   </View>
                 ))}
 
-                {Array.from({length: 5}, (_, i) => {
-                  const field = `ai_generated_tagline_arg${
-                    i + 1
-                  }` as keyof typeof data;
+                {Array.from({ length: 5 }, (_, i) => {
+                  const field = `ai_generated_tagline_arg${i + 1}` as keyof typeof data;
                   return (
                     <View key={field} style={tw`mb-5`}>
-                      <Text
-                        style={tw`text-sm text-gray-700 font-semibold mb-1`}>
+                      <Text style={tw`text-sm text-gray-700 font-semibold mb-1`}>
                         Tagline {i + 1}
                       </Text>
                       <TextInput
@@ -343,8 +328,7 @@ const UpdateAIContentModal = ({
                   {loading ? (
                     <ActivityIndicator color="#fff" />
                   ) : (
-                    <Text
-                      style={tw`text-white text-center text-base font-semibold`}>
+                    <Text style={tw`text-white text-center text-base font-semibold`}>
                       Update
                     </Text>
                   )}

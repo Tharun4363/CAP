@@ -1,3 +1,4 @@
+// [Same import section as before]
 import {useState, useEffect} from 'react';
 import {
   View,
@@ -9,7 +10,6 @@ import {
   Platform,
 } from 'react-native';
 import {useNavigation} from '@react-navigation/native';
-
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {API_IP_ADDRESS} from '../../../config';
@@ -18,12 +18,11 @@ import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {ActivityIndicator} from 'react-native-paper';
 import Toast from 'react-native-toast-message';
 
-// Define your navigation stack types (you can extract this to a `types.ts`)
 type RootStackParamList = {
   Home: undefined;
   EditCustomer: undefined;
   Deploy: undefined;
-  UpdateWeb: undefined; // ✅ Add this since you use it in navigation
+  UpdateWeb: undefined;
 };
 
 type NavigationProp = NativeStackNavigationProp<
@@ -189,7 +188,6 @@ export default function EditCustomer() {
         additional.web_agent_id.toString(),
       );
 
-      // Alert.alert('Success', 'Customer details retrieved successfully!');
       Toast.show({
         type: 'success',
         text1: 'Success',
@@ -270,89 +268,72 @@ export default function EditCustomer() {
   };
 
   const topMargin = Platform.OS === 'ios' ? tw`mt-10` : tw`mt-1`;
+
   return (
     <ScrollView
-      style={tw`flex-1 bg-gray-50 px-4 pt-4 pb-20`}
-      contentContainerStyle={[tw`items-center`, topMargin]}
+      style={tw.style(`flex-1 bg-gray-50 px-4 pt-4 pb-20`)}
+      contentContainerStyle={[tw.style(`items-center`, topMargin)]}
       showsVerticalScrollIndicator={false}>
-      <View style={tw`w-full max-w-3xl`}>
-        {/* Header with back button */}
-        <View style={tw`flex-row items-center justify-between mb-6`}>
+      <View style={tw.style(`w-full max-w-3xl`)}>
+        {/* Header */}
+        <View style={tw.style(`flex-row items-center justify-between mb-6`)}>
           <TouchableOpacity
             onPress={() => navigation.goBack()}
-            style={tw`flex-row items-center p-2 rounded-full bg-gray-100`}
+            style={tw.style(`flex-row items-center p-2 rounded-full bg-gray-100`)}
             activeOpacity={0.7}>
             <Ionicons name="arrow-back" size={20} color="#3b82f6" />
-            <Text style={tw`ml-1 text-blue-600 font-medium`}>Back</Text>
+            <Text style={tw.style(`ml-1 text-blue-600 font-medium`)}>Back</Text>
           </TouchableOpacity>
-          <Text style={tw`text-2xl font-bold text-gray-800`}>
+          <Text style={tw.style(`text-2xl font-bold text-gray-800`)}>
             Edit Customer
           </Text>
-          <View style={tw`w-10`} /> {/* Spacer for alignment */}
+          <View style={tw.style(`w-10`)} />
         </View>
 
-        {/* Error message */}
-        {errorMessage && (
-          <View style={tw`bg-red-50 p-3 rounded-lg mb-4 border border-red-100`}>
-            <Text style={tw`text-red-600 text-sm`}>{errorMessage}</Text>
+        {/* Error */}
+        {errorMessage !== '' && (
+          <View style={tw.style(`bg-red-50 p-3 rounded-lg mb-4 border border-red-100`)}>
+            <Text style={tw.style(`text-red-600 text-sm`)}>{errorMessage}</Text>
           </View>
         )}
 
-        {/* Form fields */}
-        <View style={tw`bg-white rounded-xl p-6 shadow-sm mb-6`}>
-          <Text
-            style={tw`text-xl font-semibold text-gray-800 mb-6 pb-2 border-b border-gray-100`}>
+        {/* Form */}
+        <View style={tw.style(`bg-white rounded-xl p-6 shadow-sm mb-6`)}>
+          <Text style={tw.style(`text-xl font-semibold text-gray-800 mb-6 pb-2 border-b border-gray-100`)}>
             Customer Information
           </Text>
-
-          <View style={tw`flex flex-wrap flex-row justify-between`}>
+          <View style={tw.style(`flex flex-wrap flex-row justify-between`)}>
             {Object.entries(formData).map(([key, value]) => {
-              if (
-                key.startsWith('require') ||
-                key === 'cust_id' ||
-                key === 'web_agent_id'
-              )
+              if (key.startsWith('require') || key === 'cust_id' || key === 'web_agent_id')
                 return null;
 
               const label = key
                 .replace(/([A-Z])/g, ' $1')
                 .replace('about Organization', 'Company Description');
-              const isRequired = [
-                'fullName',
-                'companyName',
-                'phone',
-                'email',
-                'address',
-              ].includes(key);
+              const isRequired = ['fullName', 'companyName', 'phone', 'email', 'address'].includes(key);
 
               return (
                 <View
                   key={key}
-                  style={[
-                    tw`mb-5 w-full`,
-                    Platform.OS === 'web' ? tw`md:w-[48%]` : null,
-                  ]}>
-                  <Text style={tw`text-sm font-medium text-gray-600 mb-1`}>
+                  style={[tw.style(`mb-5 w-full`, Platform.OS === 'web' ? tw`md:w-[48%]` : null)]}>
+                  <Text style={tw.style(`text-sm font-medium text-gray-600 mb-1`)}>
                     {label}{' '}
-                    {isRequired && <Text style={tw`text-red-500`}>*</Text>}
+                    {isRequired && <Text style={tw.style(`text-red-500`)}>*</Text>}
                   </Text>
                   <TextInput
                     style={[
-                      tw`border border-gray-200 rounded-lg px-4 py-3 text-gray-800 bg-white`,
-                      tw`focus:border-blue-500 focus:ring-2 focus:ring-blue-100`,
-                      errors[key as keyof FormData] &&
-                        tw`border-red-300 bg-red-50`,
+                      tw.style(`border border-gray-200 rounded-lg px-4 py-3 text-gray-800 bg-white`),
+                      tw.style(`focus:border-blue-500 focus:ring-2 focus:ring-blue-100`),
+                      errors[key as keyof FormData] && tw`border-red-300 bg-red-50`,
                     ]}
                     placeholder={`Enter ${label}`}
                     placeholderTextColor="#9ca3af"
-                    value={value?.toString()}
-                    onChangeText={text =>
-                      handleChange(key as keyof FormData, text)
-                    }
+                    value={typeof value === 'string' || typeof value === 'number' ? value.toString() : ''}
+                    onChangeText={text => handleChange(key as keyof FormData, text)}
                     editable={key !== 'category'}
                   />
-                  {typeof key === 'string' && key in errors && (
-                    <Text style={tw`text-red-500 mt-1 text-xs`}>
+                  {errors[key as keyof FormData] && (
+                    <Text style={tw.style(`text-red-500 mt-1 text-xs`)}>
                       {errors[key as keyof FormData]}
                     </Text>
                   )}
@@ -362,83 +343,65 @@ export default function EditCustomer() {
           </View>
         </View>
 
-        {/* Requirements section */}
-        <View style={tw`bg-white rounded-xl p-6 shadow-sm mb-6`}>
-          <Text
-            style={tw`text-xl font-semibold text-gray-800 mb-4 pb-2 border-b border-gray-100`}>
+        {/* Requirements */}
+        <View style={tw.style(`bg-white rounded-xl p-6 shadow-sm mb-6`)}>
+          <Text style={tw.style(`text-xl font-semibold text-gray-800 mb-4 pb-2 border-b border-gray-100`)}>
             Requirements
           </Text>
-          <View style={tw`flex-row flex-wrap`}>
+          <View style={tw.style(`flex-row flex-wrap`)}>
             {Object.keys(formData)
               .filter(key => key.startsWith('require'))
-              .map(key => (
-                <TouchableOpacity
-                  key={key}
-                  style={tw`flex-row items-center mb-3 w-1/2`}
-                  activeOpacity={0.7}
-                  onPress={() =>
-                    handleChange(
-                      key as keyof FormData,
-                      !formData[key as keyof FormData],
-                    )
-                  }>
-                  <View
-                    style={[
-                      tw`w-5 h-5 rounded-md border-2 mr-2 flex items-center justify-center`,
-                      formData[key as keyof FormData]
-                        ? tw`bg-blue-500 border-blue-500`
-                        : tw`border-gray-300`,
-                    ]}>
-                    {formData[key as keyof FormData] && (
-                      <Ionicons name="checkmark" size={14} color="white" />
-                    )}
-                  </View>
-                  <Text style={tw`text-gray-700`}>
-                    {key.replace(/require/, '').replace(/([A-Z])/g, ' $1')}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+              .map(key => {
+                const label = key.replace('require', '').replace(/([A-Z])/g, ' $1');
+                return (
+                  <TouchableOpacity
+                    key={key}
+                    style={tw.style(`flex-row items-center mb-3 w-1/2`)}
+                    activeOpacity={0.7}
+                    onPress={() =>
+                      handleChange(key as keyof FormData, !formData[key as keyof FormData])
+                    }>
+                    <View
+                      style={[
+                        tw.style(`w-5 h-5 rounded-md border-2 mr-2 flex items-center justify-center`,
+                          formData[key as keyof FormData]
+                            ? tw`bg-blue-500 border-blue-500`
+                            : tw`border-gray-300`,
+                        ),
+                      ]}>
+                      {formData[key as keyof FormData] && (
+                        <Ionicons name="checkmark" size={14} color="white" />
+                      )}
+                    </View>
+                    <Text style={tw.style(`text-gray-700`)}>{label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
           </View>
         </View>
 
-        {/* Action buttons */}
-        <View style={tw`flex-row justify-between mt-4 mb-10`}>
-          {/* Save Button */}
+        {/* Action Buttons */}
+        <View style={tw.style(`flex-row justify-between mt-4 mb-10`)}>
           <TouchableOpacity
-            style={[
-              tw`flex-1 py-3 rounded-xl items-center justify-center mr-2`,
-              tw`bg-blue-600`,
-              isLoading && tw`opacity-60`,
-            ]}
+            style={[tw.style(`flex-1 py-3 rounded-xl items-center justify-center mr-2 bg-blue-600`), isLoading && tw`opacity-60`]}
             onPress={handleSubmit}
             disabled={isLoading}
             activeOpacity={0.8}>
             {isLoading ? (
-              <View style={tw`flex-row items-center`}>
-                <ActivityIndicator
-                  color="white"
-                  size="small"
-                  style={tw`mr-2`}
-                />
-                <Text style={tw`text-white text-base font-semibold`}>
-                  Saving...
-                </Text>
+              <View style={tw.style(`flex-row items-center`)}>
+                <ActivityIndicator color="white" size="small" style={tw`mr-2`} />
+                <Text style={tw.style(`text-white text-base font-semibold`)}>Saving...</Text>
               </View>
             ) : (
-              <Text style={tw`text-white text-base font-semibold`}>
-                Save Changes
-              </Text>
+              <Text style={tw.style(`text-white text-base font-semibold`)}>Save Changes</Text>
             )}
           </TouchableOpacity>
 
-          {/* Cancel Button */}
           <TouchableOpacity
-            style={tw`flex-1 py-3 rounded-xl items-center justify-center ml-2 bg-white border border-gray-300`}
+            style={tw.style(`flex-1 py-3 rounded-xl items-center justify-center ml-2 bg-white border border-gray-300`)}
             onPress={() => navigation.goBack()}
             activeOpacity={0.8}>
-            <Text style={tw`text-gray-700 text-base font-semibold`}>
-              Cancel
-            </Text>
+            <Text style={tw.style(`text-gray-700 text-base font-semibold`)}>Cancel</Text>
           </TouchableOpacity>
         </View>
       </View>

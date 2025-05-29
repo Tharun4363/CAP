@@ -13,7 +13,6 @@ import {
 import {useForm, Controller, FieldValues} from 'react-hook-form';
 import {useNavigation} from '@react-navigation/native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-// import { Ionicons } from '@expo/vector-icons';
 import tw from 'twrnc';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
@@ -180,49 +179,49 @@ export default function MenuSettingsScreen() {
 
   if (isFetching) {
     return (
-      <View style={tw`flex-1 justify-center items-center bg-white`}>
+      <View style={tw.style(`flex-1 justify-center items-center bg-white`)}>
         <ActivityIndicator size="large" color="#0000ff" />
-        <Text style={tw`mt-4 text-lg`}>Loading...</Text>
+        <Text style={tw.style(`mt-4 text-lg`)}>Loading...</Text>
       </View>
     );
   }
 
+  const selectedLang = languages.find(l => l.value === watch('language'));
+
   return (
-    <View style={tw`flex-1 bg-gray-50`}>
+    <View style={tw.style(`flex-1 bg-gray-50`)}>
       <ScrollView
         contentContainerStyle={[
-          tw`px-4 py-6`,
-          isDesktop ? tw`w-1/2 mx-auto` : tw`w-full`,
+          tw.style(`px-4 py-6`),
+          isDesktop ? tw.style(`w-1/2 mx-auto`) : tw.style(`w-full`),
         ]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}>
-        {/* Header with back button */}
-        <View style={tw`flex-row items-center mb-2`}>
+        {/* Header */}
+        <View style={tw.style(`flex-row items-center mb-2`)}>
           <TouchableOpacity
             onPress={() => navigation.goBack()}
-            style={tw`p-2 rounded-full bg-gray-100`}
+            style={tw.style(`p-2 rounded-full bg-gray-100`)}
             activeOpacity={0.7}>
             <Ionicons name="arrow-back" size={20} color="#3b82f6" />
           </TouchableOpacity>
-          <Text style={tw`ml-3 text-blue-600 font-medium`}>Back</Text>
+          <Text style={tw.style(`ml-3 text-blue-600 font-medium`)}>Back</Text>
         </View>
 
-        {/* Title */}
-        <Text style={tw`text-2xl font-bold text-gray-900 mb-10 text-center`}>
+        <Text style={tw.style(`text-2xl font-bold text-gray-900 mb-10 text-center`)}>
           Menu Settings
         </Text>
 
-        {/* Settings Card */}
-        <View style={tw`bg-white rounded-xl shadow-sm p-6 mb-8`}>
-          {/* Toggle Options */}
+        {/* Page Toggles */}
+        <View style={tw.style(`bg-white rounded-xl shadow-sm p-6 mb-8`)}>
           {toggleOptions.map(({name, label}, index) => (
             <View key={name}>
               <Controller
                 name={name}
                 control={control}
                 render={({field}) => (
-                  <View style={tw`flex-row items-center justify-between py-4`}>
-                    <Text style={tw`text-lg font-medium text-gray-800`}>
+                  <View style={tw.style(`flex-row items-center justify-between py-4`)}>
+                    <Text style={tw.style(`text-lg font-medium text-gray-800`)}>
                       {label}
                     </Text>
                     <Switch
@@ -235,38 +234,34 @@ export default function MenuSettingsScreen() {
                 )}
               />
               {index < toggleOptions.length - 1 && (
-                <View style={tw`border-b border-gray-100`} />
+                <View style={tw.style(`border-b border-gray-100`)} />
               )}
             </View>
           ))}
         </View>
 
-        {/* Language Picker Card */}
+        {/* Language Picker */}
         <TouchableOpacity
           onPress={() => setLanguageModalVisible(true)}
-          style={tw`bg-white rounded-xl shadow-sm p-6 mb-8`}
+          style={tw.style(`bg-white rounded-xl shadow-sm p-6 mb-8`)}
           activeOpacity={0.7}>
-          <View style={tw`flex-row items-center justify-between`}>
-            <Text style={tw`text-lg font-medium text-gray-800`}>
-              Language:{' '}
-              {watch('language')
-                ? languages.find(l => l.value === watch('language'))?.label ||
-                  'English'
-                : 'Select Language'}
+          <View style={tw.style(`flex-row items-center justify-between`)}>
+            <Text style={tw.style(`text-lg font-medium text-gray-800`)}>
+              Language: {selectedLang?.label || 'Select Language'}
             </Text>
             <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
           </View>
         </TouchableOpacity>
 
-        {/* Custom Logo Section */}
-        <View style={tw`bg-white rounded-xl shadow-sm p-6 mb-8`}>
+        {/* Custom Logo */}
+        <View style={tw.style(`bg-white rounded-xl shadow-sm p-6 mb-8`)}>
           <Controller
             name="custom_logo"
             control={control}
             render={({field}) => (
               <>
-                <View style={tw`flex-row items-center justify-between py-4`}>
-                  <Text style={tw`text-lg font-medium text-gray-800`}>
+                <View style={tw.style(`flex-row items-center justify-between py-4`)}>
+                  <Text style={tw.style(`text-lg font-medium text-gray-800`)}>
                     Use Custom Logo
                   </Text>
                   <Switch
@@ -280,8 +275,8 @@ export default function MenuSettingsScreen() {
                   />
                 </View>
                 {field.value === 'N' && (
-                  <View style={tw`mt-4`}>
-                    <Text style={tw`text-sm font-medium text-gray-500 mb-2`}>
+                  <View style={tw.style(`mt-4`)}>
+                    <Text style={tw.style(`text-sm font-medium text-gray-500 mb-2`)}>
                       Logo Shortcut Text
                     </Text>
                     <Controller
@@ -289,7 +284,7 @@ export default function MenuSettingsScreen() {
                       control={control}
                       render={({field}) => (
                         <TextInput
-                          style={tw`border border-gray-200 rounded-lg p-4 text-gray-800 bg-gray-50`}
+                          style={tw.style(`border border-gray-200 rounded-lg p-4 text-gray-800 bg-gray-50`)}
                           placeholder="Enter text (e.g., company initials)"
                           placeholderTextColor="#9ca3af"
                           value={field.value}
@@ -307,22 +302,22 @@ export default function MenuSettingsScreen() {
         {/* Save Button */}
         <TouchableOpacity
           style={[
-            tw`bg-blue-600 p-5 rounded-xl shadow-sm mt-6`,
-            isLoading && tw`opacity-80`,
-            isDesktop && tw`w-1/2 mx-auto`,
+            tw.style(`bg-blue-600 p-5 rounded-xl shadow-sm mt-6`),
+            isLoading && tw.style(`opacity-80`),
+            isDesktop && tw.style(`w-1/2 mx-auto`),
           ]}
           onPress={handleSubmit(onSubmit)}
           disabled={isLoading}
           activeOpacity={0.8}>
           {isLoading ? (
-            <View style={tw`flex-row justify-center items-center`}>
+            <View style={tw.style(`flex-row justify-center items-center`)}>
               <ActivityIndicator color="#fff" size="small" />
-              <Text style={tw`text-white font-semibold text-lg ml-3`}>
+              <Text style={tw.style(`text-white font-semibold text-lg ml-3`)}>
                 Saving Changes...
               </Text>
             </View>
           ) : (
-            <Text style={tw`text-white font-semibold text-lg text-center`}>
+            <Text style={tw.style(`text-white font-semibold text-lg text-center`)}>
               Save Settings
             </Text>
           )}
@@ -330,29 +325,23 @@ export default function MenuSettingsScreen() {
       </ScrollView>
 
       {/* Language Modal */}
-      <Modal
-        visible={languageModalVisible}
-        animationType="slide"
-        presentationStyle="pageSheet">
-        <View style={tw`flex-1 bg-gray-50`}>
-          <View style={tw`bg-white px-4 py-4 shadow-sm`}>
-            <View style={tw`flex-row items-center justify-between`}>
+      <Modal visible={languageModalVisible} animationType="slide">
+        <View style={tw.style(`flex-1 bg-gray-50`)}>
+          <View style={tw.style(`bg-white px-4 py-4 shadow-sm`)}>
+            <View style={tw.style(`flex-row items-center justify-between`)}>
               <TouchableOpacity
                 onPress={() => setLanguageModalVisible(false)}
-                style={tw`p-2`}
-                activeOpacity={0.7}>
+                style={tw.style(`p-2`)}>
                 <Ionicons name="close" size={24} color="#6b7280" />
               </TouchableOpacity>
-              <Text style={tw`text-lg font-semibold text-gray-900`}>
+              <Text style={tw.style(`text-lg font-semibold text-gray-900`)}>
                 Select Language
               </Text>
-              <View style={tw`w-8`} /> {/* Spacer for alignment */}
+              <View style={tw.style(`w-8`)} />
             </View>
           </View>
 
-          <ScrollView
-            contentContainerStyle={tw`pb-8`}
-            showsVerticalScrollIndicator={false}>
+          <ScrollView contentContainerStyle={tw.style(`pb-8`)}>
             {languages.map(lang => (
               <TouchableOpacity
                 key={lang.value}
@@ -360,10 +349,11 @@ export default function MenuSettingsScreen() {
                   setValue('language', lang.value);
                   setLanguageModalVisible(false);
                 }}
-                style={tw`px-6 py-4`}
-                activeOpacity={0.7}>
-                <View style={tw`flex-row items-center justify-between`}>
-                  <Text style={tw`text-lg text-gray-800`}>{lang.label}</Text>
+                style={tw.style(`px-6 py-4`)}>
+                <View style={tw.style(`flex-row items-center justify-between`)}>
+                  <Text style={tw.style(`text-lg text-gray-800`)}>
+                    {lang.label}
+                  </Text>
                   {watch('language') === lang.value && (
                     <Ionicons name="checkmark" size={20} color="#3b82f6" />
                   )}
