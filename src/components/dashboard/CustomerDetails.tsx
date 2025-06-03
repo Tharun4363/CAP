@@ -53,6 +53,7 @@ api.interceptors.response.use(
     return Promise.reject(error);
   },
 );
+
 const CustomerDetails: React.FC = () => {
   const [schemaName, setSchemaName] = useState('');
   const [sidebarVisible, setSidebarVisible] = useState(false);
@@ -81,6 +82,36 @@ const CustomerDetails: React.FC = () => {
   });
 
   const toggleSidebar = () => setSidebarVisible(!sidebarVisible);
+
+  // Validation functions
+  const validateEmail = (email: string): boolean => {
+    const emailRegex = /^[^\s@]+@gmail\.com$/;
+    return emailRegex.test(email);
+  };
+
+  const validatePhone = (phone: string): boolean => {
+    const phoneRegex = /^\d{10}$/;
+    return phoneRegex.test(phone);
+  };
+
+  const validateForm = (name: string, email: string, phone: string): string | null => {
+    if (!name.trim()) {
+      return 'Customer name is required';
+    }
+    if (!email.trim()) {
+      return 'Email is required';
+    }
+    if (!validateEmail(email)) {
+      return 'Email must be a valid Gmail address (e.g., user@gmail.com)';
+    }
+    if (!phone.trim()) {
+      return 'Phone number is required';
+    }
+    if (!validatePhone(phone)) {
+      return 'Phone number must be exactly 10 digits';
+    }
+    return null;
+  };
 
   useEffect(() => {
     const updateLayout = () => {
@@ -125,6 +156,7 @@ const CustomerDetails: React.FC = () => {
 
     loadCustomerId();
   }, []);
+
   const fetchCustomerData = async (customerId: any) => {
     setConnectionError(false);
     const url = `${API_IP_ADDRESS}/api/v1/customers-by-schema/${customerId}`;
@@ -156,6 +188,7 @@ const CustomerDetails: React.FC = () => {
     } finally {
     }
   };
+
   const handleApiError = (action: any, error: any) => {
     console.error(`Error ${action}:`, error);
 
@@ -187,11 +220,13 @@ const CustomerDetails: React.FC = () => {
   };
 
   const handleAddCustomer = async () => {
-    if (!newCustomer.name || !newCustomer.email || !newCustomer.phone) {
+    const validationError = validateForm(newCustomer.name, newCustomer.email, newCustomer.phone);
+    
+    if (validationError) {
       Toast.show({
         type: 'error',
         text1: 'Validation Error',
-        text2: 'All fields are required',
+        text2: validationError,
         position: 'bottom',
       });
       return;
@@ -208,11 +243,13 @@ const CustomerDetails: React.FC = () => {
       const response = await api.post(url, newCustomer);
       console.log('Add customer response:', response.data);
 
+      // Success popup
       Toast.show({
         type: 'success',
-        text1: 'Success',
+        text1: 'Success!',
         text2: 'Customer added successfully',
-        position: 'bottom',
+        position: 'top',
+        visibilityTime: 3000,
       });
 
       setAddModalVisible(false);
@@ -224,15 +261,19 @@ const CustomerDetails: React.FC = () => {
   };
 
   const handleEditCustomer = async () => {
-    if (
-      !editingCustomer?.customer_name ||
-      !editingCustomer?.email ||
-      !editingCustomer?.phone_no_1
-    ) {
+    if (!editingCustomer) return;
+
+    const validationError = validateForm(
+      editingCustomer.customer_name, 
+      editingCustomer.email, 
+      editingCustomer.phone_no_1
+    );
+    
+    if (validationError) {
       Toast.show({
         type: 'error',
         text1: 'Validation Error',
-        text2: 'All fields are required',
+        text2: validationError,
         position: 'bottom',
       });
       return;
@@ -246,11 +287,13 @@ const CustomerDetails: React.FC = () => {
       const response = await api.put(url, editingCustomer);
       console.log('Update customer response:', response.data);
 
+      // Success popup
       Toast.show({
         type: 'success',
-        text1: 'Success',
+        text1: 'Success!',
         text2: 'Customer updated successfully',
-        position: 'bottom',
+        position: 'top',
+        visibilityTime: 3000,
       });
 
       setEditModalVisible(false);
@@ -261,50 +304,13 @@ const CustomerDetails: React.FC = () => {
     }
   };
 
-  const handleDeleteCustomer = (customer: any) => {
-    Alert.alert(
-      'Confirm Delete',
-      `Are you sure you want to delete ${customer.customer_name}?`,
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const url = `${API_IP_ADDRESS}/api/v1/customers-by-schema/${schemaName}`;
-              console.log('Deleting customer at URL:', url);
-              console.log('Customer email to delete:', customer.email);
+ 
 
-              const response = await api.delete(url, {
-                data: {email: customer.email},
-              });
-              console.log('Delete customer response:', response.data);
-
-              Toast.show({
-                type: 'success',
-                text1: 'Success',
-                text2: 'Customer deleted successfully',
-                position: 'bottom',
-              });
-
-              fetchCustomerData(schemaName);
-            } catch (error) {
-              handleApiError('deleting customer', error);
-            }
-          },
-        },
-      ],
-    );
-  };
   const ConnectionErrorBanner = () => {
     if (!connectionError) return null;
 
     return (
-      <View style={tw`bg-red-100 p-3 border-l-4 border-red-500  mt-150`}>
+      <View style={tw`bg-red-100 p-3 border-l-4 border-red-500 mt-150`}>
         <Text style={tw`text-red-700 font-medium`}>Connection Error</Text>
         <Text style={tw`text-red-600`}>Unable to connect to the server</Text>
         <TouchableOpacity
@@ -355,26 +361,32 @@ const CustomerDetails: React.FC = () => {
 
           <Text style={tw`text-gray-700 font-medium mb-1`}>Email</Text>
           <TextInput
-            style={tw`border border-gray-300 rounded-lg p-3 mb-3 text-base`}
-            placeholder="Enter customer email"
+            style={tw`border border-gray-300 rounded-lg p-3 mb-1 text-base`}
+            placeholder="Enter Gmail address (e.g., user@gmail.com)"
             keyboardType="email-address"
             autoCapitalize="none"
             value={newCustomer.email}
-            onChangeText={text => setNewCustomer({...newCustomer, email: text})}
+            onChangeText={text => setNewCustomer({...newCustomer, email: text.toLowerCase()})}
           />
+          <Text style={tw`text-xs text-gray-500 mb-3`}>* Must be a Gmail address</Text>
 
           <Text style={tw`text-gray-700 font-medium mb-1`}>Phone Number</Text>
           <TextInput
-            style={tw`border border-gray-300 rounded-lg p-3 mb-4 text-base`}
-            placeholder="Enter phone number"
+            style={tw`border border-gray-300 rounded-lg p-3 mb-1 text-base`}
+            placeholder="Enter 10-digit phone number"
             keyboardType="phone-pad"
             value={newCustomer.phone}
-            onChangeText={text => setNewCustomer({...newCustomer, phone: text})}
+            onChangeText={text => {
+              const numericText = text.replace(/[^0-9]/g, '');
+              setNewCustomer({...newCustomer, phone: numericText});
+            }}
+            maxLength={10}
           />
+          <Text style={tw`text-xs text-gray-500 mb-4`}>* Must be exactly 10 digits</Text>
 
           <View style={tw`flex-row justify-between`}>
             <TouchableOpacity
-              style={tw`bg-gray-300 py-3 px-5 rounded-lg flex-1 mr-2`}
+              style={tw`bg-gray-300 py-3 px-5 rounded-lg flex-1 mr-2 items-center justify-center`}
               onPress={() => setAddModalVisible(false)}>
               <Text style={tw`text-gray-800 text-center font-medium`}>
                 Cancel
@@ -393,6 +405,7 @@ const CustomerDetails: React.FC = () => {
       </KeyboardAvoidingView>
     </Modal>
   );
+
   // Edit Customer Modal
   const renderEditModal = () => (
     <Modal
@@ -422,30 +435,34 @@ const CustomerDetails: React.FC = () => {
 
           <Text style={tw`text-gray-700 font-medium mb-1`}>Email</Text>
           <TextInput
-            style={tw`border border-gray-300 rounded-lg p-3 mb-3 text-base`}
-            placeholder="Enter customer email"
+            style={tw`border border-gray-300 rounded-lg p-3 mb-1 text-base`}
+            placeholder="Enter Gmail address (e.g., user@gmail.com)"
             keyboardType="email-address"
             autoCapitalize="none"
             value={editingCustomer?.email || ''}
             onChangeText={text => {
               if (editingCustomer) {
-                setEditingCustomer({...editingCustomer, email: text});
+                setEditingCustomer({...editingCustomer, email: text.toLowerCase()});
               }
             }}
           />
+          <Text style={tw`text-xs text-gray-500 mb-3`}>* Must be a Gmail address</Text>
 
           <Text style={tw`text-gray-700 font-medium mb-1`}>Phone Number</Text>
           <TextInput
-            style={tw`border border-gray-300 rounded-lg p-3 mb-4 text-base`}
-            placeholder="Enter phone number"
+            style={tw`border border-gray-300 rounded-lg p-3 mb-1 text-base`}
+            placeholder="Enter 10-digit phone number"
             keyboardType="phone-pad"
             value={editingCustomer?.phone_no_1 || ''}
             onChangeText={text => {
+              const numericText = text.replace(/[^0-9]/g, '');
               if (editingCustomer) {
-                setEditingCustomer({...editingCustomer, phone_no_1: text});
+                setEditingCustomer({...editingCustomer, phone_no_1: numericText});
               }
             }}
+            maxLength={10}
           />
+          <Text style={tw`text-xs text-gray-500 mb-4`}>* Must be exactly 10 digits</Text>
 
           <View style={tw`flex-row justify-between`}>
             <TouchableOpacity
@@ -468,6 +485,7 @@ const CustomerDetails: React.FC = () => {
       </KeyboardAvoidingView>
     </Modal>
   );
+
   return (
     <View style={tw`flex-1`}>
       {isMobile && !sidebarVisible && (
@@ -503,7 +521,7 @@ const CustomerDetails: React.FC = () => {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={tw`bg-gray-200 py-2 px-4 rounded-lg ml-2 flex-1`}
+            style={tw`bg-gray-200 py-2 px-4 rounded-lg ml-2 items-center justify-center`}
             onPress={() => navigation.goBack()}>
             <Text style={tw`text-gray-800 text-center font-medium`}>Back</Text>
           </TouchableOpacity>
@@ -550,11 +568,7 @@ const CustomerDetails: React.FC = () => {
                         <Text style={tw`text-white`}>Edit</Text>
                       </TouchableOpacity>
 
-                      <TouchableOpacity
-                        style={tw`bg-red-500 py-1 px-3 rounded`}
-                        onPress={() => handleDeleteCustomer(item)}>
-                        <Text style={tw`text-white`}>Delete</Text>
-                      </TouchableOpacity>
+                     
                     </View>
                   </View>
                 )}

@@ -12,7 +12,7 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import {useNavigation} from '@react-navigation/native';
 import tw from 'tailwind-react-native-classnames';
 import axios from 'axios';
-import * as Animatable from 'react-native-animatable'; // 🔥 Animation import
+import * as Animatable from 'react-native-animatable';
 import {API_IP_ADDRESS} from '../../../config';
 import {useAuth} from '../../Auth/AuthContext';
 import Toast from 'react-native-toast-message';

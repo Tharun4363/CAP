@@ -130,7 +130,7 @@ const ResetPassword = () => {
           <TextInput
             value={customerId}
             editable={false}
-            style={tw`bg-gray-100 border border-gray-300 rounded-lg p-3 mb-4 text-gray-500`}
+            style={tw`bg-gray-100 border border-gray-300 rounded-lg p-3 mb-4 text-black-500`}
           />
 
           <Text style={tw`text-sm font-semibold mb-1`}>
@@ -139,7 +139,7 @@ const ResetPassword = () => {
           <TextInput
             value={customerUniqueId}
             editable={false}
-            style={tw`bg-gray-100 border border-gray-300 rounded-lg p-3 mb-4 text-gray-500`}
+            style={tw`bg-gray-100 border border-gray-300 rounded-lg p-3 mb-4 text-black-500`}
           />
 
           {[

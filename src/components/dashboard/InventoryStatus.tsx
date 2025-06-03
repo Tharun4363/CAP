@@ -264,44 +264,7 @@ const InventoryStatus: React.FC = () => {
     }
   };
 
-  const handleDeleteInventory = (inventory: any) => {
-    Alert.alert(
-      'Confirm Delete',
-      `Are you sure you want to delete inventory item ${inventory.inv_no}?`,
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              // Update the URL to include the inv_no in the path
-              const url = `${API_IP_ADDRESS}/api/v1/inventory-by-schema/${schemaName}/${inventory.inv_no}`;
-              console.log('Deleting inventory at URL:', url);
-
-              // No need to send data in the body for DELETE
-              const response = await api.delete(url);
-              console.log('Delete inventory response:', response.data);
-
-              Toast.show({
-                type: 'success',
-                text1: 'Success',
-                text2: 'Inventory deleted successfully',
-                position: 'bottom',
-              });
-
-              fetchInventoryData(schemaName);
-            } catch (error) {
-              handleApiError('deleting inventory', error);
-            }
-          },
-        },
-      ],
-    );
-  };
+ 
 
   useEffect(() => {
     const updateLayout = () => {
@@ -323,7 +286,7 @@ const InventoryStatus: React.FC = () => {
       onRequestClose={() => setAddModalVisible(false)}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={tw`flex-1 justify-center px-4 mt-15`}>
+        style={[tw`flex-1 justify-center px-4`, {marginTop: 150}]}>
         <View style={tw`bg-white rounded-lg p-6 shadow-lg mx-2`}>
           <Text style={tw`text-xl font-bold mb-4 text-center text-gray-800`}>
             Add New Inventory
@@ -374,13 +337,14 @@ const InventoryStatus: React.FC = () => {
           />
 
           <View style={tw`flex-row justify-between`}>
-            <TouchableOpacity
-              style={tw`bg-gray-300 py-3 px-5 rounded-lg flex-1 mr-2`}
-              onPress={() => setAddModalVisible(false)}>
-              <Text style={tw`text-gray-800 text-center font-medium`}>
-                Cancel
-              </Text>
-            </TouchableOpacity>
+        <TouchableOpacity
+  style={tw`bg-gray-300 py-3 px-5 rounded-lg flex-1 mr-2 items-center justify-center`}
+  onPress={() => setAddModalVisible(false)}>
+  <Text style={tw`text-gray-800 text-center font-medium`}>
+    Cancel
+  </Text>
+</TouchableOpacity>
+
 
             <TouchableOpacity
               style={tw`bg-blue-500 py-3 px-5 rounded-lg flex-1 ml-2`}
@@ -457,13 +421,13 @@ const InventoryStatus: React.FC = () => {
           />
 
           <View style={tw`flex-row justify-between`}>
-            <TouchableOpacity
-              style={tw`bg-gray-300 py-3 px-5 rounded-lg flex-1 mr-2`}
-              onPress={() => setEditModalVisible(false)}>
-              <Text style={tw`text-gray-800 text-center font-medium`}>
-                Cancel
-              </Text>
-            </TouchableOpacity>
+  <TouchableOpacity
+    style={tw`bg-gray-300 py-3 px-5 rounded-lg flex-1 mr-2 justify-center items-center`}
+    onPress={() => setEditModalVisible(false)}>
+    <Text style={tw`text-gray-800 text-center font-medium`}>
+      Cancel
+    </Text>
+  </TouchableOpacity>
 
             <TouchableOpacity
               style={tw`bg-blue-500 py-3 px-5 rounded-lg flex-1 ml-2`}
@@ -482,7 +446,7 @@ const InventoryStatus: React.FC = () => {
     if (!connectionError) return null;
 
     return (
-      <View style={tw`bg-red-100 p-3 border-l-4 border-red-500 mt-150`}>
+      <View style={[tw`bg-red-100 p-3 border-l-4 border-red-500`,  {marginTop: 150}]}>
         <Text style={tw`text-red-700 font-medium`}>Connection Error</Text>
         <Text style={tw`text-red-600`}>Unable to connect to the server</Text>
         <TouchableOpacity
@@ -500,7 +464,7 @@ const InventoryStatus: React.FC = () => {
   if (isLoading) {
     return (
       <SafeAreaView
-        style={tw`flex-1 justify-center items-center bg-white mt-150`}>
+        style={[tw`flex-1 justify-center items-center bg-white`, {marginTop: 150}]}>
         <StatusBar barStyle="dark-content" />
         <ActivityIndicator size="large" color="#0000ff" />
         <Text style={tw`mt-4 text-gray-600`}>Loading inventory data...</Text>
@@ -539,28 +503,27 @@ const InventoryStatus: React.FC = () => {
       <ConnectionErrorBanner />
 
       {/* Action Buttons - Enhanced */}
-      <View
-        style={tw`flex-col px-4 py-3 bg-white border-b border-gray-200 shadow-sm ${
-          isMobile ? 'mt-16' : 'mt-4'
-        }`}>
-        <TouchableOpacity
-          style={tw`bg-indigo-600 py-3 px-4 rounded-lg mb-3 flex-row justify-center items-center`}
-          onPress={() => setAddModalVisible(true)}>
-          <MaterialIcons name="add" size={20} color="white" />
-          <Text style={tw`text-white ml-2 text-center font-medium`}>
-            Add New Inventory
-          </Text>
-        </TouchableOpacity>
+     <View
+  style={tw`flex-col px-4 py-3 bg-white border-b border-gray-200 shadow-sm ${isMobile ? 'mt-16' : 'mt-4'}`}>
+  
+  <TouchableOpacity
+    style={tw`bg-blue-500 py-3 px-4 rounded-lg mb-3 flex-row justify-center items-center`}
+    onPress={() => setAddModalVisible(true)}>
+    <Text style={tw`text-white text-center font-medium`}>
+      Add New Employee
+    </Text>
+  </TouchableOpacity>
 
-        <TouchableOpacity
-          style={tw`bg-white border border-gray-300 py-3 px-4 rounded-lg flex-row justify-center items-center`}
-          onPress={navigateBack}>
-          <MaterialIcons name="arrow-back" size={20} color="#4b5563" />
-          <Text style={tw`text-gray-700 ml-2 text-center font-medium`}>
-            Back
-          </Text>
-        </TouchableOpacity>
-      </View>
+  <TouchableOpacity
+    style={tw`bg-gray-200 py-3 px-4 rounded-lg flex-row justify-center items-center`}
+    onPress={navigateBack}>
+    <Text style={tw`text-gray-800 text-center font-medium`}>
+      Back
+    </Text>
+  </TouchableOpacity>
+
+</View>
+
 
       {/* Main Content - Enhanced */}
       <ScrollView
@@ -592,7 +555,7 @@ const InventoryStatus: React.FC = () => {
             {inventoryData.map((inventory: any, index) => (
               <View
                 key={index}
-                style={tw`bg-white mb-4 p-5 rounded-xl shadow-xs border border-gray-100`}>
+                style={tw`bg-white mb-4 p-5 rounded-xl shadow-sm border border-gray-100`}>
                 <View style={tw`flex-row justify-between items-start mb-3`}>
                   <Text style={tw`text-lg font-bold text-gray-800`}>
                     {inventory.inv_no}
@@ -607,11 +570,7 @@ const InventoryStatus: React.FC = () => {
                       <MaterialIcons name="edit" size={18} color="#3b82f6" />
                     </TouchableOpacity>
 
-                    <TouchableOpacity
-                      style={tw`bg-red-50 p-2 rounded-lg`}
-                      onPress={() => handleDeleteInventory(inventory)}>
-                      <MaterialIcons name="delete" size={18} color="#ef4444" />
-                    </TouchableOpacity>
+                   
                   </View>
                 </View>
 
@@ -637,7 +596,7 @@ const InventoryStatus: React.FC = () => {
                   <Text style={tw`text-gray-500 text-sm mb-1`}>Status</Text>
                   <View
                     style={[
-                      tw`inline-flex px-3 py-1 rounded-full`,
+                      tw`flex-row px-3 py-1 rounded-full`,
                       inventory.item_status?.toLowerCase() === 'available' &&
                         tw`bg-green-50`,
                       inventory.item_status?.toLowerCase() === 'in use' &&

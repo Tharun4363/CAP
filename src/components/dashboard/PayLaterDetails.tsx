@@ -1,32 +1,30 @@
-import React, {useEffect, useState} from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   Dimensions,
-  StyleSheet,
   ScrollView,
   ActivityIndicator,
   Modal,
   KeyboardAvoidingView,
   Platform,
   TextInput,
-  Alert,
 } from 'react-native';
-import {useNavigation} from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import tw from 'tailwind-react-native-classnames';
 import Sidebar from './Sidebar';
-import {StatusBar} from 'react-native';
-import {API_IP_ADDRESS} from '../../../config';
+import { StatusBar } from 'react-native';
+import { API_IP_ADDRESS } from '../../../config';
 import Toast from 'react-native-toast-message';
 import axios from 'axios';
-import {SafeAreaView} from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 // Create a configured axios instance with timeout and retry logic
 const api = axios.create({
-  timeout: 15000, // 15 seconds timeout
+  timeout: 15000,
   headers: {
     'Content-Type': 'application/json',
     Accept: 'application/json',
@@ -35,21 +33,21 @@ const api = axios.create({
 
 // Add request interceptor for logging
 api.interceptors.request.use(request => {
-  console.log('Starting Request:', request.method, request.url);
+  console.log('Starting Request:', request.method, request.url, JSON.stringify(request.data, null, 2));
   return request;
 });
 
 // Add response interceptor for logging
 api.interceptors.response.use(
   response => {
-    console.log('Response:', response.status);
+    console.log('Response:', response.status, JSON.stringify(response.data, null, 2));
     return response;
   },
   error => {
     console.log('Response Error:', error.message);
     if (error.response) {
       console.log('Error Status:', error.response.status);
-      console.log('Error Data:', error.response.data);
+      console.log('Error Data:', JSON.stringify(error.response.data, null, 2));
     }
     return Promise.reject(error);
   },
@@ -58,7 +56,6 @@ api.interceptors.response.use(
 const PayLaterDetails: React.FC = () => {
   const navigation = useNavigation();
   const [schemaName, setSchemaName] = useState('');
-
   const [sidebarVisible, setSidebarVisible] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [payLaterData, setPayLaterData] = useState<any[]>([]);
@@ -67,6 +64,7 @@ const PayLaterDetails: React.FC = () => {
   const [connectionError, setConnectionError] = useState(false);
 
   const toggleSidebar = () => setSidebarVisible(!sidebarVisible);
+
   // Modal states
   const [addModalVisible, setAddModalVisible] = useState(false);
   const [editModalVisible, setEditModalVisible] = useState(false);
@@ -78,6 +76,8 @@ const PayLaterDetails: React.FC = () => {
     total_amount: number;
     amount_paid?: number;
     amount_due?: number;
+    purchased_date?: string;
+    pay_status?: string;
   } | null>(null);
 
   // Form states
@@ -89,17 +89,26 @@ const PayLaterDetails: React.FC = () => {
     total_amount: '',
     amount_paid: '',
     amount_due: '',
-    purchased_date: new Date().toISOString().split('T')[0], // Default to today's date
-    pay_status: 'Pending', // Default status
+    purchased_date: new Date().toISOString().split('T')[0],
+    pay_status: 'Pending',
     arg1: '',
     arg2: '',
     arg3: '',
   });
 
+  // Error states for inline validation messages
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [phoneError, setPhoneError] = useState<string | null>(null);
+
+  // Validation regex
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const phoneRegex = /^\d{10}$/;
+
   // Log API_IP_ADDRESS on component mount
   useEffect(() => {
     console.log('API_IP_ADDRESS:', API_IP_ADDRESS);
   }, []);
+
   useEffect(() => {
     const loadCustomerId = async () => {
       try {
@@ -120,11 +129,10 @@ const PayLaterDetails: React.FC = () => {
           navigation.goBack();
         }
       } catch (error: any) {
-        console.error('Error retrieving customer ID:', error);
+        console.error('Error retrieving customer ID:', error.message);
         Toast.show({
           type: 'error',
           text1: 'Error',
-
           text2: 'Failed to load paylater data: ' + error.message,
           position: 'bottom',
         });
@@ -136,7 +144,7 @@ const PayLaterDetails: React.FC = () => {
     loadCustomerId();
   }, []);
 
-  const fetchPayLaterData = async (customerId: any) => {
+  const fetchPayLaterData = async (customerId: string) => {
     setRefreshing(true);
     setConnectionError(false);
     const url = `${API_IP_ADDRESS}/api/v1/paylater-by-schema/${customerId}`;
@@ -144,18 +152,7 @@ const PayLaterDetails: React.FC = () => {
 
     try {
       const response = await api.get(url);
-      console.log(
-        'PayLater data received:',
-        response.data?.length || 'no data',
-      );
-
-      // Log the first item to inspect structure if available
-      if (Array.isArray(response.data) && response.data.length > 0) {
-        console.log(
-          'First PayLater item structure:',
-          JSON.stringify(response.data[0], null, 2),
-        );
-      }
+      console.log('PayLater data received:', response.data?.length || 'no data');
 
       if (Array.isArray(response.data)) {
         setPayLaterData(response.data);
@@ -177,16 +174,15 @@ const PayLaterDetails: React.FC = () => {
       setRefreshing(false);
     }
   };
-  const handleApiError = (action: any, error: any) => {
-    console.error(`Error ${action}:`, error);
+
+  const handleApiError = (action: string, error: any) => {
+    console.error(`Error ${action}:`, error.message);
 
     let errorMessage = 'An unknown error occurred';
 
     if (error.message === 'Network Error') {
       errorMessage = 'Cannot connect to server. Please check your connection.';
     } else if (error.response) {
-      // The request was made and the server responded with a status code
-      // that falls out of the range of 2xx
       errorMessage = `Server error: ${error.response.status}`;
       if (error.response.data && error.response.data.message) {
         errorMessage += ` - ${error.response.data.message}`;
@@ -194,10 +190,8 @@ const PayLaterDetails: React.FC = () => {
         errorMessage += ` - ${error.response.data.error}`;
       }
     } else if (error.request) {
-      // The request was made but no response was received
       errorMessage = 'No response from server. Check if the server is running.';
     } else {
-      // Something happened in setting up the request that triggered an Error
       errorMessage = error.message;
     }
 
@@ -209,30 +203,84 @@ const PayLaterDetails: React.FC = () => {
     });
   };
 
-  const handleAddPayLater = async () => {
-    if (
-      !newPayLater.customer_name ||
-      !newPayLater.email ||
-      !newPayLater.phone_no ||
-      !newPayLater.purchased_item ||
-      !newPayLater.total_amount
-    ) {
-      Toast.show({
-        type: 'error',
-        text1: 'Validation Error',
-        text2: 'Required fields must be filled',
-        position: 'bottom',
-      });
-      return;
+  const validateForm = (form: typeof newPayLater) => {
+    console.log('Validating form:', JSON.stringify(form, null, 2));
+    let emailError: string | null = null;
+    let phoneError: string | null = null;
+    const otherErrors: string[] = [];
+
+    if (!form.customer_name.trim()) {
+      otherErrors.push('Customer name is required');
+    }
+    if (!emailRegex.test(form.email.trim())) {
+      emailError = 'Please enter a valid email address';
+    }
+    if (!phoneRegex.test(form.phone_no.trim())) {
+      phoneError = 'Phone number must be exactly 10 digits';
+    }
+    if (!form.purchased_item.trim()) {
+      otherErrors.push('Purchased item is required');
+    }
+    if (!form.total_amount || isNaN(parseFloat(form.total_amount)) || parseFloat(form.total_amount) <= 0) {
+      otherErrors.push('Valid total amount is required');
+    }
+    if (form.amount_paid && (isNaN(parseFloat(form.amount_paid)) || parseFloat(form.amount_paid) < 0)) {
+      otherErrors.push('Amount paid must be a valid non-negative number');
+    }
+    if (form.amount_due && (isNaN(parseFloat(form.amount_due)) || parseFloat(form.amount_due) < 0)) {
+      otherErrors.push('Amount due must be a valid non-negative number');
+    }
+    if (form.amount_paid && form.total_amount && parseFloat(form.amount_paid) > parseFloat(form.total_amount)) {
+      otherErrors.push('Amount paid cannot exceed total amount');
     }
 
+    return { emailError, phoneError, otherErrors };
+  };
+
+  const handleAddPayLater = async () => {
     try {
+      console.log('Add Details button pressed. Form state:', JSON.stringify(newPayLater, null, 2));
+
+      const { emailError, phoneError, otherErrors } = validateForm(newPayLater);
+      setEmailError(emailError);
+      setPhoneError(phoneError);
+
+      if (emailError || phoneError || otherErrors.length > 0) {
+        console.log('Validation failed:', { emailError, phoneError, otherErrors });
+        if (otherErrors.length > 0) {
+          Toast.show({
+            type: 'error',
+            text1: 'Validation Error',
+            text2: otherErrors.join(', '),
+            position: 'bottom',
+          });
+        }
+        return;
+      }
+
       const url = `${API_IP_ADDRESS}/api/v1/paylater-by-schema/${schemaName}`;
       console.log('Adding paylater at URL:', url);
-      console.log('PayLater data to add:', newPayLater);
 
-      const response = await api.post(url, newPayLater);
-      console.log('Add paylater response:', response.data);
+      // Prepare payload with proper number conversion
+      const payload = {
+        customer_name: newPayLater.customer_name.trim(),
+        email: newPayLater.email.trim(),
+        phone_no: newPayLater.phone_no.trim(),
+        purchased_item: newPayLater.purchased_item.trim(),
+        total_amount: parseFloat(newPayLater.total_amount),
+        amount_paid: newPayLater.amount_paid ? parseFloat(newPayLater.amount_paid) : 0,
+        amount_due: newPayLater.amount_due ? parseFloat(newPayLater.amount_due) : parseFloat(newPayLater.total_amount),
+        purchased_date: newPayLater.purchased_date,
+        pay_status: newPayLater.pay_status,
+        arg1: newPayLater.arg1,
+        arg2: newPayLater.arg2,
+        arg3: newPayLater.arg3,
+      };
+
+      console.log('PayLater payload:', JSON.stringify(payload, null, 2));
+
+      const response = await api.post(url, payload);
+      console.log('Add paylater response:', JSON.stringify(response.data, null, 2));
 
       Toast.show({
         type: 'success',
@@ -256,36 +304,74 @@ const PayLaterDetails: React.FC = () => {
         arg2: '',
         arg3: '',
       });
+      setEmailError(null);
+      setPhoneError(null);
       fetchPayLaterData(schemaName);
-    } catch (error) {
+    } catch (error: any) {
+      console.error('Error in handleAddPayLater:', error.message);
       handleApiError('adding paylater details', error);
     }
   };
+
   const handleEditPayLater = async () => {
-    if (
-      !editingPayLater?.customer_name ||
-      !editingPayLater?.email ||
-      !editingPayLater?.phone_no ||
-      !editingPayLater?.purchased_item ||
-      !editingPayLater?.total_amount
-    ) {
-      Toast.show({
-        type: 'error',
-        text1: 'Validation Error',
-        text2: 'Required fields must be filled',
-        position: 'bottom',
-      });
+    if (!editingPayLater) {
+      console.log('No payLater data to edit');
       return;
     }
 
     try {
-      // Note: According to your backend API, updates are based on email
+      const form = {
+        customer_name: editingPayLater.customer_name,
+        email: editingPayLater.email,
+        phone_no: editingPayLater.phone_no,
+        purchased_item: editingPayLater.purchased_item,
+        total_amount: String(editingPayLater.total_amount),
+        amount_paid: String(editingPayLater.amount_paid || ''),
+        amount_due: String(editingPayLater.amount_due || ''),
+        purchased_date: editingPayLater.purchased_date || new Date().toISOString().split('T')[0],
+        pay_status: editingPayLater.pay_status || 'Pending',
+        arg1: '',
+        arg2: '',
+        arg3: '',
+      };
+
+      console.log('Validating edit form:', JSON.stringify(form, null, 2));
+      const { emailError, phoneError, otherErrors } = validateForm(form);
+      setEmailError(emailError);
+      setPhoneError(phoneError);
+
+      if (emailError || phoneError || otherErrors.length > 0) {
+        console.log('Edit validation failed:', { emailError, phoneError, otherErrors });
+        if (otherErrors.length > 0) {
+          Toast.show({
+            type: 'error',
+            text1: 'Validation Error',
+            text2: otherErrors.join(', '),
+            position: 'bottom',
+          });
+        }
+        return;
+      }
+
       const url = `${API_IP_ADDRESS}/api/v1/paylater-by-schema/${schemaName}`;
       console.log('Updating paylater at URL:', url);
-      console.log('PayLater data to update:', editingPayLater);
 
-      const response = await api.put(url, editingPayLater);
-      console.log('Update paylater response:', response.data);
+      const payload = {
+        customer_name: editingPayLater.customer_name.trim(),
+        email: editingPayLater.email.trim(),
+        phone_no: editingPayLater.phone_no.trim(),
+        purchased_item: editingPayLater.purchased_item.trim(),
+        total_amount: parseFloat(String(editingPayLater.total_amount)),
+        amount_paid: editingPayLater.amount_paid ? parseFloat(String(editingPayLater.amount_paid)) : 0,
+        amount_due: editingPayLater.amount_due ? parseFloat(String(editingPayLater.amount_due)) : parseFloat(String(editingPayLater.total_amount)),
+        purchased_date: editingPayLater.purchased_date || new Date().toISOString().split('T')[0],
+        pay_status: editingPayLater.pay_status || 'Pending',
+      };
+
+      console.log('PayLater update payload:', JSON.stringify(payload, null, 2));
+
+      const response = await api.put(url, payload);
+      console.log('Update paylater response:', JSON.stringify(response.data, null, 2));
 
       Toast.show({
         type: 'success',
@@ -296,66 +382,18 @@ const PayLaterDetails: React.FC = () => {
 
       setEditModalVisible(false);
       setEditingPayLater(null);
+      setEmailError(null);
+      setPhoneError(null);
       fetchPayLaterData(schemaName);
-    } catch (error) {
+    } catch (error: any) {
+      console.error('Error in handleEditPayLater:', error.message);
       handleApiError('updating paylater details', error);
     }
   };
 
-  const handleDeletePayLater = (payLater: any) => {
-    if (!payLater || !payLater.email) {
-      Toast.show({
-        type: 'error',
-        text1: 'Error',
-        text2: 'Email is required for deletion',
-        position: 'bottom',
-      });
-      return;
-    }
-
-    Alert.alert(
-      'Confirm Delete',
-      `Are you sure you want to delete paylater details for ${payLater.customer_name}?`,
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              // Using email as the identifier for deletion according to your API
-              const url = `${API_IP_ADDRESS}/api/v1/paylater-by-schema/${schemaName}/${payLater.email}`;
-              console.log('Deleting paylater at URL:', url);
-
-              const response = await api.delete(url);
-              console.log('Delete paylater response:', response.data);
-
-              Toast.show({
-                type: 'success',
-                text1: 'Success',
-                text2: 'PayLater details deleted successfully',
-                position: 'bottom',
-              });
-
-              fetchPayLaterData(schemaName);
-            } catch (error) {
-              handleApiError('deleting paylater details', error);
-            }
-          },
-        },
-      ],
-    );
-  };
-
-  const navigateBack = () => {
-    navigation.goBack();
-  };
   useEffect(() => {
     const updateLayout = () => {
-      const {width} = Dimensions.get('window');
+      const { width } = Dimensions.get('window');
       setIsMobile(width < 768);
     };
     updateLayout();
@@ -367,7 +405,7 @@ const PayLaterDetails: React.FC = () => {
   if (isLoading) {
     return (
       <SafeAreaView
-        style={tw`flex-1 justify-center items-center bg-white mt-150`}>
+        style={[tw`flex-1 justify-center items-center bg-white`, { marginTop: 150 }]}>
         <StatusBar barStyle="dark-content" />
         <ActivityIndicator size="large" color="#0000ff" />
         <Text style={tw`mt-4 text-gray-600`}>Loading PayLater data...</Text>
@@ -391,50 +429,55 @@ const PayLaterDetails: React.FC = () => {
               Add New PayLater Details
             </Text>
 
-            <Text style={tw`text-gray-700 font-medium mb-1`}>
-              Customer Name
-            </Text>
+            <Text style={tw`text-gray-700 font-medium mb-1`}>Customer Name</Text>
             <TextInput
               style={tw`border border-gray-300 rounded-lg p-3 mb-3 text-base`}
               placeholder="Enter customer name"
               value={newPayLater.customer_name}
               onChangeText={text =>
-                setNewPayLater({...newPayLater, customer_name: text})
+                setNewPayLater({ ...newPayLater, customer_name: text })
               }
             />
 
             <Text style={tw`text-gray-700 font-medium mb-1`}>Email</Text>
             <TextInput
-              style={tw`border border-gray-300 rounded-lg p-3 mb-3 text-base`}
-              placeholder="Enter customer email"
+              style={tw`border border-gray-300 rounded-lg p-3 mb-1 text-base`}
+              placeholder="Enter customer email (e.g., user@domain.com)"
               keyboardType="email-address"
               autoCapitalize="none"
               value={newPayLater.email}
-              onChangeText={text =>
-                setNewPayLater({...newPayLater, email: text})
-              }
+              onChangeText={text => {
+                setNewPayLater({ ...newPayLater, email: text });
+                setEmailError(null); // Clear error on input change
+              }}
             />
+            {emailError && (
+              <Text style={tw`text-red-500 text-sm mb-3`}>{emailError}</Text>
+            )}
 
             <Text style={tw`text-gray-700 font-medium mb-1`}>Phone Number</Text>
             <TextInput
-              style={tw`border border-gray-300 rounded-lg p-3 mb-3 text-base`}
-              placeholder="Enter phone number"
+              style={tw`border border-gray-300 rounded-lg p-3 mb-1 text-base`}
+              placeholder="Enter 10-digit phone number"
               keyboardType="phone-pad"
               value={newPayLater.phone_no}
-              onChangeText={text =>
-                setNewPayLater({...newPayLater, phone_no: text})
-              }
+              onChangeText={text => {
+                setNewPayLater({ ...newPayLater, phone_no: text.replace(/[^0-9]/g, '') });
+                setPhoneError(null); // Clear error on input change
+              }}
+              maxLength={10}
             />
+            {phoneError && (
+              <Text style={tw`text-red-500 text-sm mb-3`}>{phoneError}</Text>
+            )}
 
-            <Text style={tw`text-gray-700 font-medium mb-1`}>
-              Purchased Item
-            </Text>
+            <Text style={tw`text-gray-700 font-medium mb-1`}>Purchased Item</Text>
             <TextInput
               style={tw`border border-gray-300 rounded-lg p-3 mb-3 text-base`}
               placeholder="Enter purchased item"
               value={newPayLater.purchased_item}
               onChangeText={text =>
-                setNewPayLater({...newPayLater, purchased_item: text})
+                setNewPayLater({ ...newPayLater, purchased_item: text })
               }
             />
 
@@ -442,10 +485,10 @@ const PayLaterDetails: React.FC = () => {
             <TextInput
               style={tw`border border-gray-300 rounded-lg p-3 mb-3 text-base`}
               placeholder="Enter total amount"
-              keyboardType="numeric"
+              keyboardType="decimal-pad"
               value={newPayLater.total_amount}
               onChangeText={text =>
-                setNewPayLater({...newPayLater, total_amount: text})
+                setNewPayLater({ ...newPayLater, total_amount: text.replace(/[^0-9.]/g, '') })
               }
             />
 
@@ -453,10 +496,10 @@ const PayLaterDetails: React.FC = () => {
             <TextInput
               style={tw`border border-gray-300 rounded-lg p-3 mb-3 text-base`}
               placeholder="Enter amount paid"
-              keyboardType="numeric"
+              keyboardType="decimal-pad"
               value={newPayLater.amount_paid}
               onChangeText={text =>
-                setNewPayLater({...newPayLater, amount_paid: text})
+                setNewPayLater({ ...newPayLater, amount_paid: text.replace(/[^0-9.]/g, '') })
               }
             />
 
@@ -464,17 +507,22 @@ const PayLaterDetails: React.FC = () => {
             <TextInput
               style={tw`border border-gray-300 rounded-lg p-3 mb-4 text-base`}
               placeholder="Enter amount due"
-              keyboardType="numeric"
+              keyboardType="decimal-pad"
               value={newPayLater.amount_due}
               onChangeText={text =>
-                setNewPayLater({...newPayLater, amount_due: text})
+                setNewPayLater({ ...newPayLater, amount_due: text.replace(/[^0-9.]/g, '') })
               }
             />
 
             <View style={tw`flex-row justify-between`}>
               <TouchableOpacity
                 style={tw`bg-gray-300 py-3 px-5 rounded-lg flex-1 mr-2`}
-                onPress={() => setAddModalVisible(false)}>
+                onPress={() => {
+                  console.log('Cancel button pressed');
+                  setAddModalVisible(false);
+                  setEmailError(null);
+                  setPhoneError(null);
+                }}>
                 <Text style={tw`text-gray-800 text-center font-medium`}>
                   Cancel
                 </Text>
@@ -482,7 +530,10 @@ const PayLaterDetails: React.FC = () => {
 
               <TouchableOpacity
                 style={tw`bg-blue-500 py-3 px-5 rounded-lg flex-1 ml-2`}
-                onPress={handleAddPayLater}>
+                onPress={() => {
+                  console.log('Add Details button triggered');
+                  handleAddPayLater();
+                }}>
                 <Text style={tw`text-white text-center font-medium`}>
                   Add Details
                 </Text>
@@ -493,6 +544,7 @@ const PayLaterDetails: React.FC = () => {
       </KeyboardAvoidingView>
     </Modal>
   );
+
   // Edit PayLater Modal
   const renderEditModal = () => (
     <Modal
@@ -509,9 +561,7 @@ const PayLaterDetails: React.FC = () => {
               Edit PayLater Details
             </Text>
 
-            <Text style={tw`text-gray-700 font-medium mb-1`}>
-              Customer Name
-            </Text>
+            <Text style={tw`text-gray-700 font-medium mb-1`}>Customer Name</Text>
             <TextInput
               style={tw`border border-gray-300 rounded-lg p-3 mb-3 text-base`}
               placeholder="Enter customer name"
@@ -524,35 +574,35 @@ const PayLaterDetails: React.FC = () => {
               }
             />
 
-            <Text style={tw`text-gray-700 font-medium mb-1`}>
-              Email (Cannot be changed)
-            </Text>
+            <Text style={tw`text-gray-700 font-medium mb-1`}>Email (Cannot be changed)</Text>
             <TextInput
               style={tw`border border-gray-300 rounded-lg p-3 mb-3 text-base bg-gray-100`}
               placeholder="Enter customer email"
               keyboardType="email-address"
               autoCapitalize="none"
               value={editingPayLater?.email || ''}
-              editable={false} // Email cannot be changed as it's the identifier
+              editable={false}
             />
 
             <Text style={tw`text-gray-700 font-medium mb-1`}>Phone Number</Text>
             <TextInput
-              style={tw`border border-gray-300 rounded-lg p-3 mb-3 text-base`}
-              placeholder="Enter phone number"
+              style={tw`border border-gray-300 rounded-lg p-3 mb-1 text-base`}
+              placeholder="Enter 10-digit phone number"
               keyboardType="phone-pad"
               value={editingPayLater?.phone_no || ''}
               onChangeText={text =>
                 setEditingPayLater(prev => ({
                   ...prev!,
-                  phone_no: text,
+                  phone_no: text.replace(/[^0-9]/g, ''),
                 }))
               }
+              maxLength={10}
             />
+            {phoneError && (
+              <Text style={tw`text-red-500 text-sm mb-3`}>{phoneError}</Text>
+            )}
 
-            <Text style={tw`text-gray-700 font-medium mb-1`}>
-              Purchased Item
-            </Text>
+            <Text style={tw`text-gray-700 font-medium mb-1`}>Purchased Item</Text>
             <TextInput
               style={tw`border border-gray-300 rounded-lg p-3 mb-3 text-base`}
               placeholder="Enter purchased item"
@@ -569,12 +619,12 @@ const PayLaterDetails: React.FC = () => {
             <TextInput
               style={tw`border border-gray-300 rounded-lg p-3 mb-3 text-base`}
               placeholder="Enter total amount"
-              keyboardType="numeric"
+              keyboardType="decimal-pad"
               value={String(editingPayLater?.total_amount || '')}
               onChangeText={text =>
                 setEditingPayLater(prev => ({
                   ...prev!,
-                  total_amount: text ? parseFloat(text) : 0, // Convert to number safely
+                  total_amount: text ? parseFloat(text.replace(/[^0-9.]/g, '')) : 0,
                 }))
               }
             />
@@ -583,12 +633,12 @@ const PayLaterDetails: React.FC = () => {
             <TextInput
               style={tw`border border-gray-300 rounded-lg p-3 mb-3 text-base`}
               placeholder="Enter amount paid"
-              keyboardType="numeric"
+              keyboardType="decimal-pad"
               value={String(editingPayLater?.amount_paid || '')}
               onChangeText={text =>
                 setEditingPayLater(prev => ({
                   ...prev!,
-                  amount_paid: text ? parseFloat(text) : 0, // Convert to number safely
+                  amount_paid: text ? parseFloat(text.replace(/[^0-9.]/g, '')) : 0,
                 }))
               }
             />
@@ -597,12 +647,12 @@ const PayLaterDetails: React.FC = () => {
             <TextInput
               style={tw`border border-gray-300 rounded-lg p-3 mb-4 text-base`}
               placeholder="Enter amount due"
-              keyboardType="numeric"
+              keyboardType="decimal-pad"
               value={String(editingPayLater?.amount_due || '')}
               onChangeText={text =>
                 setEditingPayLater(prev => ({
                   ...prev!,
-                  amount_due: text ? parseFloat(text) : 0, // Convert to number safely
+                  amount_due: text ? parseFloat(text.replace(/[^0-9.]/g, '')) : 0,
                 }))
               }
             />
@@ -610,7 +660,11 @@ const PayLaterDetails: React.FC = () => {
             <View style={tw`flex-row justify-between`}>
               <TouchableOpacity
                 style={tw`bg-gray-300 py-3 px-5 rounded-lg flex-1 mr-2`}
-                onPress={() => setEditModalVisible(false)}>
+                onPress={() => {
+                  console.log('Cancel edit button pressed');
+                  setEditModalVisible(false);
+                  setPhoneError(null);
+                }}>
                 <Text style={tw`text-gray-800 text-center font-medium`}>
                   Cancel
                 </Text>
@@ -618,7 +672,10 @@ const PayLaterDetails: React.FC = () => {
 
               <TouchableOpacity
                 style={tw`bg-blue-500 py-3 px-5 rounded-lg flex-1 ml-2`}
-                onPress={handleEditPayLater}>
+                onPress={() => {
+                  console.log('Save Changes button triggered');
+                  handleEditPayLater();
+                }}>
                 <Text style={tw`text-white text-center font-medium`}>
                   Save Changes
                 </Text>
@@ -654,7 +711,7 @@ const PayLaterDetails: React.FC = () => {
 
       <ScrollView
         contentContainerStyle={tw`p-6`}
-        style={{marginTop: isMobile ? 60 : 0}}>
+        style={{ marginTop: isMobile ? 60 : 0 }}>
         <Text style={tw`text-base text-gray-700`}>
           Customer ID: {schemaName ?? 'Loading...'}
         </Text>
@@ -662,15 +719,21 @@ const PayLaterDetails: React.FC = () => {
         <View style={tw`flex-row px-4 py-3 bg-white border-b border-gray-200`}>
           <TouchableOpacity
             style={tw`bg-blue-500 py-2 px-4 rounded-lg mr-2 flex-1`}
-            onPress={() => setAddModalVisible(true)}>
+            onPress={() => {
+              console.log('Add New PayLater button pressed');
+              setAddModalVisible(true);
+            }}>
             <Text style={tw`text-white text-center font-medium`}>
               Add New PayLater
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={tw`bg-gray-200 py-2 px-4 rounded-lg ml-2 flex-1`}
-            onPress={navigateBack}>
+            style={tw`bg-gray-200 py-2 px-4 rounded-lg ml-2 flex-1 items-center justify-center`}
+            onPress={() => {
+              console.log('Back button pressed');
+              navigation.goBack();
+            }}>
             <Text style={tw`text-gray-800 text-center font-medium`}>Back</Text>
           </TouchableOpacity>
         </View>
@@ -700,19 +763,13 @@ const PayLaterDetails: React.FC = () => {
                   </Text>
                   <View style={tw`flex-row`}>
                     <TouchableOpacity
-                      style={tw`bg-blue-100 p-2 rounded-lg mr-2`}
+                      style={tw`bg-blue-100 p-2 rounded-lg`}
                       onPress={() => {
-                        console.log('Setting editing payLater:', payLater);
-                        setEditingPayLater({...payLater});
+                        console.log('Edit button pressed for:', payLater);
+                        setEditingPayLater({ ...payLater });
                         setEditModalVisible(true);
                       }}>
                       <Text style={tw`text-blue-600 font-medium`}>Edit</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={tw`bg-red-100 p-2 rounded-lg`}
-                      onPress={() => handleDeletePayLater(payLater)}>
-                      <Text style={tw`text-red-600 font-medium`}>Delete</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -724,28 +781,22 @@ const PayLaterDetails: React.FC = () => {
 
                 <View style={tw`flex-row items-center mb-1`}>
                   <Text style={tw`text-gray-500 w-28`}>Phone:</Text>
-                  <Text style={tw`text-gray-700 flex-1`}>
-                    {payLater.phone_no}
-                  </Text>
+                  <Text style={tw`text-gray-700 flex-1`}>{payLater.phone_no}</Text>
                 </View>
 
                 <View style={tw`flex-row items-center mb-1`}>
                   <Text style={tw`text-gray-500 w-28`}>Purchased Item:</Text>
-                  <Text style={tw`text-gray-700 flex-1`}>
-                    {payLater.purchased_item}
-                  </Text>
+                  <Text style={tw`text-gray-700 flex-1`}>{payLater.purchased_item}</Text>
                 </View>
 
-                <View
-                  style={tw`flex-row items-center mb-1 bg-gray-50 p-1 rounded`}>
+                <View style={tw`flex-row items-center mb-1 bg-gray-50 p-1 rounded`}>
                   <Text style={tw`text-gray-500 w-28`}>Total Amount:</Text>
                   <Text style={tw`text-gray-700 flex-1 font-medium`}>
                     {payLater.total_amount} IND
                   </Text>
                 </View>
 
-                <View
-                  style={tw`flex-row items-center mb-1 bg-green-50 p-1 rounded`}>
+                <View style={tw`flex-row items-center mb-1 bg-green-50 p-1 rounded`}>
                   <Text style={tw`text-gray-500 w-28`}>Amount Paid:</Text>
                   <Text style={tw`text-green-700 flex-1 font-medium`}>
                     {payLater.amount_paid} IND

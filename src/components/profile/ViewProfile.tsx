@@ -159,7 +159,7 @@ export default function ViewProfile() {
 
       {/* Logout */}
       <TouchableOpacity
-        style={tw`bg-red-600 p-4 rounded-xl mt-6 mx-4`}
+        style={tw`bg-blue-500 p-4 rounded-xl mt-6 mx-4`}
         onPress={handleLogout}>
         <Text style={tw`text-lg text-white text-center font-semibold`}>
           Logout

@@ -172,7 +172,7 @@ const ContactUs = () => {
 
           <View style={tw`space-y-4`}>
             <View
-              style={tw`flex-row items-start bg-white p-5 rounded-2xl shadow-sm`}>
+              style={tw`flex-row items-start bg-white p-5 rounded-2xl shadow-sm mb-4`}>
               <View style={tw`bg-blue-100 p-3 rounded-full mr-4`}>
                 <MaterialIcons name="location-on" size={20} color="#3b82f6" />
               </View>
@@ -187,7 +187,7 @@ const ContactUs = () => {
             </View>
 
             <View
-              style={tw`flex-row items-center bg-white p-5 rounded-2xl shadow-sm`}>
+              style={tw`flex-row items-center bg-white p-5 rounded-2xl shadow-sm mb-4`}>
               <View style={tw`bg-blue-100 p-3 rounded-full mr-4`}>
                 <Ionicons name="call" size={20} color="#3b82f6" />
               </View>
