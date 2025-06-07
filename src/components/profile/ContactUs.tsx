@@ -170,7 +170,7 @@ const ContactUs = () => {
             Other ways to reach us
           </Text>
 
-          <View style={tw`space-y-4`}>
+          <View style={tw`mb-4`}>
             <View
               style={tw`flex-row items-start bg-white p-5 rounded-2xl shadow-sm mb-4`}>
               <View style={tw`bg-blue-100 p-3 rounded-full mr-4`}>
@@ -221,7 +221,7 @@ const ContactUs = () => {
           <Text style={tw`text-center text-gray-500 mb-4`}>
             Follow us on social media
           </Text>
-          <View style={tw`flex-row justify-center space-x-4`}>
+          <View style={tw`flex-row justify-center mr-4`}>
             <TouchableOpacity style={tw`bg-blue-600 p-3 rounded-full`}>
               <Ionicons name="logo-facebook" size={20} color="white" />
             </TouchableOpacity>

@@ -105,7 +105,7 @@ export default function ViewProfile() {
         <Text style={tw`text-2xl font-bold text-gray-900 mt-2`}>
           {customerData?.contact_name.toUpperCase() ?? 'John Doe'}
         </Text>
-        <Text style={tw`text-md text-gray-500`}>{customerData?.email}</Text>
+        <Text style={tw`text-base text-gray-500`}>{customerData?.email}</Text>
       </View>
 
       {/* Details */}
@@ -172,7 +172,7 @@ export default function ViewProfile() {
 const InfoItem = ({label, value}: {label: string; value: string | null}) => (
   <View
     style={tw`flex-row justify-between items-center border-b border-gray-200 pb-2 mb-2`}>
-    <Text style={tw`text-md text-gray-500`}>{label}:</Text>
-    <Text style={tw`text-md text-gray-900 font-semibold`}>{value}</Text>
+    <Text style={tw`text-base text-gray-500`}>{label}:</Text>
+    <Text style={tw`text-base text-gray-900 font-semibold`}>{value}</Text>
   </View>
 );

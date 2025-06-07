@@ -137,7 +137,7 @@ const ProfilePage = () => {
       <TouchableOpacity
         style={{
           padding: 16,
-          backgroundColor: '#e53e3e',
+         backgroundColor: '#3b82f6',
           borderRadius: 12,
           marginTop: 32,
           shadowColor: '#000',

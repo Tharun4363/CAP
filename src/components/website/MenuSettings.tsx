@@ -9,6 +9,7 @@ import {
   ScrollView,
   useWindowDimensions,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import {useForm, Controller, FieldValues} from 'react-hook-form';
 import {useNavigation} from '@react-navigation/native';
@@ -53,6 +54,15 @@ const toggleOptions = [
   {name: 'book_appointment_page', label: 'Book Appointment Page'},
 ];
 
+// Toggles that are always enabled and non-changeable
+const nonChangeableToggles = [
+  'home_page',
+  'about_us_page',
+  'gallery_page',
+  'contact_us_page',
+  'book_appointment_page',
+];
+
 export default function MenuSettingsScreen() {
   const navigation = useNavigation();
   const {width} = useWindowDimensions();
@@ -78,8 +88,6 @@ export default function MenuSettingsScreen() {
       logo_shortcut_text: '',
     },
   });
-
-  const customLogo = watch('custom_logo');
 
   useEffect(() => {
     const fetchCustomerData = async () => {
@@ -118,41 +126,45 @@ export default function MenuSettingsScreen() {
       return;
     }
 
+    if (
+      (data.service_page === true || data.service_page === 'Y') &&
+      (data.products_page === true || data.products_page === 'Y')
+    ) {
+      Alert.alert(
+        'Selection Error',
+        'Please select either Service Page or Products Page, not both.'
+      );
+      return;
+    }
+
     const formattedData = {
       cust_id: custId,
-      home_page: data.home_page === true || data.home_page === 'Y' ? 'Y' : 'N',
-      about_us_page:
-        data.about_us_page === true || data.about_us_page === 'Y' ? 'Y' : 'N',
-      service_page:
-        data.service_page === true || data.service_page === 'Y' ? 'Y' : 'N',
-      videos_page:
-        data.videos_page === true || data.videos_page === 'Y' ? 'Y' : 'N',
-      gallery_page:
-        data.gallery_page === true || data.gallery_page === 'Y' ? 'Y' : 'N',
-      products_page:
-        data.products_page === true || data.products_page === 'Y' ? 'Y' : 'N',
-      contact_us_page:
-        data.contact_us_page === true || data.contact_us_page === 'Y'
-          ? 'Y'
-          : 'N',
-      book_appointment_page:
-        data.book_appointment_page === true ||
-        data.book_appointment_page === 'Y'
-          ? 'Y'
-          : 'N',
+      home_page: 'Y', // Always 'Y'
+      about_us_page: 'Y', // Always 'Y'
+      service_page: data.service_page === true || data.service_page === 'Y' ? 'Y' : 'N',
+      videos_page: data.videos_page === true || data.videos_page === 'Y' ? 'Y' : 'N',
+      gallery_page: 'Y', // Always 'Y'
+      products_page: data.products_page === true || data.products_page === 'Y' ? 'Y' : 'N',
+      contact_us_page: 'Y', // Always 'Y'
+      book_appointment_page: 'Y', // Always 'Y'
       language: data.language || 'en',
-      custom_logo: data.custom_logo,
+      custom_logo: data.custom_logo === 'Y' ? 'Y' : 'N',
       logo_shortcut_text: data.logo_shortcut_text || '',
     };
 
+    console.log("Formatted data:", formattedData);
+
     setIsLoading(true);
     try {
-      const response = await axios.post(
-        `${API_IP_ADDRESS}/api/menu-settings`,
-        formattedData,
-      );
+      const response = await axios.post(`${API_IP_ADDRESS}/api/menu-settings`, formattedData);
+      console.log("Response from API:", response.data);
 
       if (response.data) {
+        // Save to AsyncStorage
+        await AsyncStorage.setItem(`menu_settings_${custId}`, JSON.stringify(formattedData));
+        console.log(`Menu settings saved to AsyncStorage for custId: ${custId}`);
+
+        Alert.alert('Success', 'Menu settings submitted successfully');
         Toast.show({
           type: 'success',
           text1: 'Success',
@@ -167,6 +179,7 @@ export default function MenuSettingsScreen() {
         });
       }
     } catch (error) {
+      console.error("Error from API:", error);
       Toast.show({
         type: 'error',
         text1: 'Error',
@@ -179,9 +192,9 @@ export default function MenuSettingsScreen() {
 
   if (isFetching) {
     return (
-      <View style={tw.style(`flex-1 justify-center items-center bg-white`)}>
+      <View style={tw`flex-1 justify-center items-center bg-white`}>
         <ActivityIndicator size="large" color="#0000ff" />
-        <Text style={tw.style(`mt-4 text-lg`)}>Loading...</Text>
+        <Text style={tw`mt-4 text-lg`}>Loading...</Text>
       </View>
     );
   }
@@ -197,6 +210,7 @@ export default function MenuSettingsScreen() {
         ]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}>
+        
         {/* Header */}
         <View style={tw.style(`flex-row items-center mb-2`)}>
           <TouchableOpacity
@@ -226,9 +240,25 @@ export default function MenuSettingsScreen() {
                     </Text>
                     <Switch
                       value={field.value === 'Y'}
-                      onValueChange={val => field.onChange(val ? 'Y' : 'N')}
+                      onValueChange={val => {
+                        // Prevent selecting both service and products
+                        const otherValue = watch(name === 'service_page' ? 'products_page' : name === 'products_page' ? 'service_page' : '');
+                        if (
+                          (name === 'service_page' || name === 'products_page') &&
+                          val === true &&
+                          otherValue === 'Y'
+                        ) {
+                          Alert.alert(
+                            'Selection Error',
+                            'You can select either Service Page or Products Page, not both.'
+                          );
+                          return;
+                        }
+                        field.onChange(val ? 'Y' : 'N');
+                      }}
                       trackColor={{false: '#e5e7eb', true: '#93c5fd'}}
                       thumbColor={field.value === 'Y' ? '#3b82f6' : '#f3f4f6'}
+                      disabled={nonChangeableToggles.includes(name)}
                     />
                   </View>
                 )}
@@ -302,7 +332,7 @@ export default function MenuSettingsScreen() {
         {/* Save Button */}
         <TouchableOpacity
           style={[
-            tw.style(`bg-blue-600 p-5 rounded-xl shadow-sm mt-6`),
+            tw.style(`bg-blue-500 p-5 rounded-xl shadow-sm mt-6`),
             isLoading && tw.style(`opacity-80`),
             isDesktop && tw.style(`w-1/2 mx-auto`),
           ]}

@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -13,19 +13,21 @@ import {
   Platform,
   ActivityIndicator,
 } from 'react-native';
-import {useNavigation} from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import tw from 'tailwind-react-native-classnames';
 import Sidebar from './Sidebar';
 import axios from 'axios';
-import {API_IP_ADDRESS} from '../../../config';
+import { API_IP_ADDRESS } from '../../../config';
 import Toast from 'react-native-toast-message';
-import {launchImageLibrary} from 'react-native-image-picker';
-import {bucketName, s3} from '../../services/s3';
-import {Asset} from 'react-native-image-picker';
+import { launchImageLibrary } from 'react-native-image-picker';
+import { bucketName, s3 } from '../../services/s3';
+import { Asset } from 'react-native-image-picker';
 import { PutObjectCommand } from '@aws-sdk/client-s3';
 import RNFS from 'react-native-fs';
+import { Buffer } from 'buffer';
+global.Buffer = Buffer;
 
 const OrderItems = () => {
   const navigation = useNavigation();
@@ -37,6 +39,8 @@ const OrderItems = () => {
   const [opened, setOpened] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
+  const [isPreviewLoading, setIsPreviewLoading] = useState(false);
+  const [imageLoading, setImageLoading] = useState<{ [key: string]: boolean }>({});
   const [orderDetails, setOrderDetails] = useState({
     item_name: '',
     item_price: '',
@@ -45,15 +49,12 @@ const OrderItems = () => {
 
   useEffect(() => {
     const updateLayout = () => {
-      const {width} = Dimensions.get('window');
+      const { width } = Dimensions.get('window');
       setIsMobile(width < 768);
     };
     updateLayout();
-    Dimensions.addEventListener('change', updateLayout);
-
-    return () => {
-      // Cleanup listener if needed
-    };
+    const subscription = Dimensions.addEventListener('change', updateLayout);
+    return () => subscription.remove();
   }, []);
 
   useEffect(() => {
@@ -66,7 +67,7 @@ const OrderItems = () => {
           Toast.show({
             type: 'error',
             text1: 'Error',
-            text2: 'Customer ID not found',
+            text2: 'Customer ID not found. Please log in again.',
             position: 'bottom',
           });
         }
@@ -75,14 +76,13 @@ const OrderItems = () => {
         Toast.show({
           type: 'error',
           text1: 'Error',
-          text2: 'Failed to load order items',
+          text2: 'Failed to load order items. Please try again.',
           position: 'bottom',
         });
       } finally {
         setIsLoading(false);
       }
     };
-
     fetchData();
   }, []);
 
@@ -90,264 +90,195 @@ const OrderItems = () => {
     try {
       const response = await axios.get(
         `${API_IP_ADDRESS}/api/v1/order-items/${customerId}`,
+        { timeout: 30000 }
       );
       setOrderItems(response.data || []);
-    } catch (error) {
-      console.error('Error fetching order items:', error);
+    } catch (error: any) {
+      console.error('Error fetching order items:', error.message);
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'Failed to fetch order items. Please try again.',
+        position: 'bottom',
+      });
       throw error;
     }
   };
 
-  // 1. First, modify your selectImage function to include base64:
-// Add this import at top of your OrderItems.tsx file
-
-
-// Updated selectImage function (remove includeBase64 since we'll read file directly)
-const selectImage = async () => {
-  try {
-    const result = await launchImageLibrary({
-      mediaType: 'photo',
-      quality: 0.8,
-      includeBase64: false, // We don't need base64 with this approach
-    });
-    
-    if (result.assets && result.assets[0]) {
-      const asset = result.assets[0];
-      console.log('Selected image:', {
-        uri: asset.uri,
-        type: asset.type,
-        fileSize: asset.fileSize,
-        fileName: asset.fileName
-      });
-      setImage(asset);
-    }
-  } catch (error) {
-    console.error('Error selecting image:', error);
-    Toast.show({
-      type: 'error',
-      text1: 'Error',
-      text2: 'Failed to select image',
-      position: 'bottom',
-    });
-  }
-};
-
-// Most reliable upload function using react-native-fs
-const uploadImageToS3 = async (imageAsset: Asset): Promise<string> => {
-  try {
-    setIsUploading(true);
-    
-    if (!imageAsset.uri) {
-      throw new Error('Image URI is missing');
-    }
-
-    console.log('Starting upload process...');
-
-    // Create unique filename
-    const fileExtension = imageAsset.type?.split('/')[1] || 'jpg';
-    const fileName = `order_item_${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${fileExtension}`;
-
-    // Read file as base64 using react-native-fs
-    let base64Data: string;
+  const selectImage = async () => {
     try {
-      // Handle different URI formats
-      let filePath = imageAsset.uri;
-      
-      // Android file URIs might need adjustment
-      if (Platform.OS === 'android' && !filePath.startsWith('file://')) {
-        filePath = `file://${filePath}`;
+      const result = await launchImageLibrary({
+        mediaType: 'photo',
+        quality: 0.8,
+        includeBase64: false,
+      });
+
+      if (result.assets && result.assets[0]) {
+        const asset = result.assets[0];
+        const normalizedUri = asset.uri; // Keep file:// for local images
+        const filePath = normalizedUri.replace('file://', '');
+        const uriExists = await RNFS.exists(filePath);
+        console.log('Selected image:', {
+          uri: normalizedUri,
+          type: asset.type,
+          fileSize: asset.fileSize,
+          fileName: asset.fileName,
+          uriExists,
+        });
+        if (!uriExists) {
+          throw new Error('Selected image file is inaccessible');
+        }
+        setImage({ ...asset, uri: normalizedUri });
       }
-      
-      // Remove file:// prefix for RNFS
-      const cleanPath = filePath.replace('file://', '');
-      
-      console.log('Reading file from path:', cleanPath);
-      base64Data = await RNFS.readFile(cleanPath, 'base64');
-      console.log('File read successfully, size:', base64Data.length);
-      
-    } catch (readError) {
-      console.error('Error reading file:', readError);
-      throw new Error(`Failed to read image file: ${readError.message}`);
-    }
-
-    // Convert base64 to Uint8Array
-    const base64ToUint8Array = (base64: string): Uint8Array => {
-      const binaryString = atob(base64);
-      const bytes = new Uint8Array(binaryString.length);
-      for (let i = 0; i < binaryString.length; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
-      }
-      return bytes;
-    };
-
-    const fileData = base64ToUint8Array(base64Data);
-    
-    console.log('Prepared for upload:', {
-      fileName,
-      fileSize: fileData.length,
-      contentType: imageAsset.type || 'image/jpeg',
-      bucketName
-    });
-
-    // Upload to S3
-    const uploadCommand = new PutObjectCommand({
-      Bucket: bucketName,
-      Key: fileName,
-      Body: fileData,
-      ContentType: imageAsset.type || 'image/jpeg',
-      // Add some metadata for debugging
-      Metadata: {
-        'original-name': imageAsset.fileName || 'unknown',
-        'upload-timestamp': Date.now().toString(),
-        'app-version': 'react-native'
-      }
-    });
-
-    console.log('Sending to S3...');
-    const result = await s3.send(uploadCommand);
-    console.log('S3 Upload successful:', result);
-
-    // Construct the public URL
-    const imageUrl = `https://${bucketName}.s3.amazonaws.com/${fileName}`;
-    
-    console.log('Upload completed, URL:', imageUrl);
-    return imageUrl;
-    
-  } catch (error: any) {
-    console.error('Upload failed:', error);
-    throw new Error(`Failed to upload image: ${error.message || 'Unknown error'}`);
-  } finally {
-    setIsUploading(false);
-  }
-};
- const handleAddNewOrder = async () => {
-  // Input validation
-  if (
-    !orderDetails.item_name ||
-    !orderDetails.item_price ||
-    !orderDetails.item_discount
-  ) {
-    Toast.show({
-      type: 'error',
-      text1: 'Validation Error',
-      text2: 'Please fill in all required fields',
-      position: 'bottom',
-    });
-    return;
-  }
-
-  if (isUploading) {
-    Toast.show({
-      type: 'info',
-      text1: 'Please wait',
-      text2: 'Image is still uploading...',
-      position: 'bottom',
-    });
-    return;
-  }
-
-  try {
-    const customerId = await AsyncStorage.getItem('customerId');
-    if (!customerId) {
+    } catch (error) {
+      console.error('Error selecting image:', error);
       Toast.show({
         type: 'error',
         text1: 'Error',
-        text2: 'Customer ID not found',
+        text2: 'Failed to select image. Please try again.',
+        position: 'bottom',
+      });
+    }
+  };
+
+  const uploadImageToS3 = async (imageAsset: Asset): Promise<string> => {
+    try {
+      setIsUploading(true);
+      if (!imageAsset.uri) throw new Error('Image URI is missing');
+      if (!bucketName) throw new Error('S3 bucket name is not configured');
+
+      const fileExtension = imageAsset.type?.split('/')[1] || 'jpg';
+      const fileName = `order_item_${Date.now()}_${Math.random()
+        .toString(36)
+        .substring(2, 8)}.${fileExtension}`;
+
+      const filePath = imageAsset.uri.replace('file://', '');
+      const base64Data = await RNFS.readFile(filePath, 'base64');
+      const fileBuffer = Buffer.from(base64Data, 'base64');
+
+      const uploadCommand = new PutObjectCommand({
+        Bucket: bucketName,
+        Key: fileName,
+        Body: fileBuffer,
+        ContentType: imageAsset.type || 'image/jpeg',
+        Metadata: {
+          'original-name': imageAsset.fileName || 'unknown',
+          'upload-timestamp': new Date().toISOString(),
+          'app-version': 'react-native',
+        },
+      });
+
+      await s3.send(uploadCommand);
+      const s3Url = `https://${bucketName}.s3.amazonaws.com/${fileName}`;
+      return s3Url;
+    } catch (error: any) {
+      console.error('S3 Upload Error:', error.message);
+      Toast.show({
+        type: 'error',
+        text1: 'Upload Error',
+        text2: error.message || 'Failed to upload image.',
+        position: 'bottom',
+      });
+      return 'https://via.placeholder.com/120';
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleAddNewOrder = async () => {
+    if (!orderDetails.item_name.trim()) {
+      Toast.show({
+        type: 'error',
+        text1: 'Validation Error',
+        text2: 'Item name is required.',
         position: 'bottom',
       });
       return;
     }
 
-    let imageUrl = editingOrderItem?.item_image;
+    const price = parseFloat(orderDetails.item_price);
+    if (isNaN(price) || price <= 0) {
+      Toast.show({
+        type: 'error',
+        text1: 'Validation Error',
+        text2: 'Please enter a valid price greater than 0.',
+        position: 'bottom',
+      });
+      return;
+    }
 
-    // Upload new image if selected
-    if (image) {
-      try {
-        imageUrl = await uploadImageToS3(image);
-        Toast.show({
-          type: 'success',
-          text1: 'Image uploaded successfully',
-          position: 'bottom',
-        });
-      } catch (uploadError: any) {
-        console.error('Image upload failed:', uploadError);
+    const discount = parseFloat(orderDetails.item_discount);
+    if (isNaN(discount) || discount < 0 || discount > 100) {
+      Toast.show({
+        type: 'error',
+        text1: 'Validation Error',
+        text2: 'Please enter a valid discount (0-100%).',
+        position: 'bottom',
+      });
+      return;
+    }
+
+    if (isUploading) {
+      Toast.show({
+        type: 'info',
+        text1: 'Please wait',
+        text2: 'Image is still uploading...',
+        position: 'bottom',
+      });
+      return;
+    }
+
+    try {
+      const customerId = await AsyncStorage.getItem('customerId');
+      if (!customerId) {
         Toast.show({
           type: 'error',
-          text1: 'Upload Error',
-          text2: uploadError.message || 'Failed to upload image',
+          text1: 'Error',
+          text2: 'Customer ID not found. Please log in again.',
           position: 'bottom',
         });
         return;
       }
-    }
 
-    // Prepare and validate order data
-    const orderData = {
-      item_name: orderDetails.item_name.trim(),
-      item_price: parseFloat(orderDetails.item_price),
-      item_discount: parseFloat(orderDetails.item_discount),
-      item_image: imageUrl || null,
-      cust_id: customerId,
-    };
-
-    // Validate numeric fields
-    if (isNaN(orderData.item_price) || orderData.item_price <= 0) {
-      Toast.show({
-        type: 'error',
-        text1: 'Validation Error',
-        text2: 'Please enter a valid price',
-        position: 'bottom',
-      });
-      return;
-    }
-
-    if (isNaN(orderData.item_discount) || orderData.item_discount < 0 || orderData.item_discount > 100) {
-      Toast.show({
-        type: 'error',
-        text1: 'Validation Error',
-        text2: 'Please enter a valid discount (0-100%)',
-        position: 'bottom',
-      });
-      return;
-    }
-
-    console.log('Sending order data:', orderData);
-
-    // Make API call with improved error handling
-    try {
-      let response;
-      const apiConfig = {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        timeout: 30000, // 30 second timeout
-      };
-
-      if (editingOrderItem) {
-        console.log('Updating order item:', editingOrderItem.item_id);
-        const updateUrl = `${API_IP_ADDRESS}/api/v1/order-items/${customerId}/${editingOrderItem.item_id}`;
-        console.log('Update URL:', updateUrl);
-        
-        response = await axios.put(updateUrl, orderData, apiConfig);
-      } else {
-        console.log('Creating new order item');
-        const createUrl = `${API_IP_ADDRESS}/api/v1/order-items/${customerId}`;
-        console.log('Create URL:', createUrl);
-        
-        response = await axios.post(createUrl, orderData, apiConfig);
+      let imageUrl = 'https://via.placeholder.com/120';
+      if (image) {
+        imageUrl = await uploadImageToS3(image);
       }
 
-      console.log('API Response:', response.data);
-      console.log('API Status:', response.status);
+      const orderData = {
+        item_name: orderDetails.item_name.trim(),
+        item_price: price,
+        item_discount: discount,
+        item_image: imageUrl,
+        cust_id: customerId,
+      };
+
+      const createUrl = `${API_IP_ADDRESS}/api/v1/order-items/${customerId}`;
+      let response;
+      let attempts = 0;
+      const maxAttempts = 3;
+
+      while (attempts < maxAttempts) {
+        try {
+          response = await axios.post(createUrl, orderData, {
+            headers: { 'Content-Type': 'application/json' },
+            timeout: 30000,
+          });
+          break;
+        } catch (error: any) {
+          attempts++;
+          if (attempts === maxAttempts) throw error;
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      }
 
       Toast.show({
         type: 'success',
         text1: 'Success',
-        text2: editingOrderItem ? 'Order item updated successfully' : 'Order item added successfully',
+        text2: 'Order item added successfully.',
         position: 'bottom',
       });
 
-      // Reset form and close modal
       setOpened(false);
       setEditingOrderItem(null);
       setImage(null);
@@ -356,73 +287,163 @@ const uploadImageToS3 = async (imageAsset: Asset): Promise<string> => {
         item_price: '',
         item_discount: '',
       });
-      
-      // Refresh the order items list
       await fetchOrderItems(customerId);
-
     } catch (apiError: any) {
-      console.error('API Error Details:', {
-        message: apiError.message,
-        status: apiError.response?.status,
-        statusText: apiError.response?.statusText,
-        data: apiError.response?.data,
-        url: apiError.config?.url,
-        method: apiError.config?.method,
-        requestData: orderData,
-        headers: apiError.config?.headers,
-      });
-
-      let errorMessage = 'Failed to save order item';
-      
+      console.error('API Error:', apiError.message);
+      let errorMessage = 'Failed to save order item. Please try again.';
       if (apiError.response?.status === 500) {
-        errorMessage = 'Server error. Please check your backend logs and database connection.';
-        console.error('Server returned 500 error. Backend logs needed.');
+        errorMessage = apiError.response?.data?.error || 'Server error.';
       } else if (apiError.response?.status === 400) {
-        errorMessage = apiError.response?.data?.message || 'Invalid data provided. Check data format.';
+        errorMessage = apiError.response?.data?.error || 'Invalid data provided.';
       } else if (apiError.response?.status === 404) {
-        errorMessage = 'API endpoint not found. Check your API URL.';
-      } else if (apiError.response?.status === 401) {
-        errorMessage = 'Unauthorized. Check your authentication.';
-      } else if (apiError.response?.status === 403) {
-        errorMessage = 'Forbidden. Check your permissions.';
+        errorMessage = 'API endpoint not found.';
       } else if (apiError.code === 'ECONNABORTED') {
-        errorMessage = 'Request timeout. Please try again.';
+        errorMessage = 'Request timed out.';
       } else if (apiError.code === 'NETWORK_ERROR' || !apiError.response) {
-        errorMessage = 'Network error. Check your connection and API server.';
+        errorMessage = 'Network error. Check your connection.';
       }
 
       Toast.show({
         type: 'error',
-        text1: 'API Error',
+        text1: 'Error',
         text2: errorMessage,
         position: 'bottom',
       });
+    }
+  };
 
-      // If there's a detailed error message from backend, log it
-      if (apiError.response?.data) {
-        console.error('Backend error details:', apiError.response.data);
-      }
+  const handleUpdateOrder = async () => {
+    if (!orderDetails.item_name.trim()) {
+      Toast.show({
+        type: 'error',
+        text1: 'Validation Error',
+        text2: 'Item name is required.',
+        position: 'bottom',
+      });
+      return;
     }
 
-  } catch (generalError: any) {
-    console.error('General error in handleAddNewOrder:', generalError);
-    Toast.show({
-      type: 'error',
-      text1: 'Unexpected Error',
-      text2: 'Something went wrong. Please try again.',
-      position: 'bottom',
-    });
-  }
-};
+    const price = parseFloat(orderDetails.item_price);
+    if (isNaN(price) || price <= 0) {
+      Toast.show({
+        type: 'error',
+        text1: 'Validation Error',
+        text2: 'Please enter a valid price greater than 0.',
+        position: 'bottom',
+      });
+      return;
+    }
+
+    const discount = parseFloat(orderDetails.item_discount);
+    if (isNaN(discount) || discount < 0 || discount > 100) {
+      Toast.show({
+        type: 'error',
+        text1: 'Validation Error',
+        text2: 'Please enter a valid discount (0-100%).',
+        position: 'bottom',
+      });
+      return;
+    }
+
+    if (isUploading) {
+      Toast.show({
+        type: 'info',
+        text1: 'Please wait',
+        text2: 'Image is still uploading...',
+        position: 'bottom',
+      });
+      return;
+    }
+
+    try {
+      const customerId = await AsyncStorage.getItem('customerId');
+      if (!customerId || !editingOrderItem?.item_id) {
+        Toast.show({
+          type: 'error',
+          text1: 'Error',
+          text2: 'Customer ID or Item ID not found.',
+          position: 'bottom',
+        });
+        return;
+      }
+
+      let imageUrl = editingOrderItem.item_image || 'https://via.placeholder.com/120';
+      if (image) {
+        imageUrl = await uploadImageToS3(image);
+      }
+
+      const orderData = {
+        item_name: orderDetails.item_name.trim(),
+        item_price: price,
+        item_discount: discount,
+        item_image: imageUrl,
+      };
+
+      const updateUrl = `${API_IP_ADDRESS}/api/v1/order-items/${customerId}/${editingOrderItem.item_id}`;
+      const response = await axios.put(updateUrl, orderData, {
+        headers: { 'Content-Type': 'application/json' },
+        timeout: 30000,
+      });
+
+      Toast.show({
+        type: 'success',
+        text1: 'Success',
+        text2: 'Order item updated successfully.',
+        position: 'bottom',
+      });
+
+      setOpened(false);
+      setEditingOrderItem(null);
+      setImage(null);
+      setOrderDetails({
+        item_name: '',
+        item_price: '',
+        item_discount: '',
+      });
+      await fetchOrderItems(customerId);
+    } catch (apiError: any) {
+      console.error('API Error:', apiError.message);
+      let errorMessage = 'Failed to update order item. Please try again.';
+      if (apiError.response?.status === 500) {
+        errorMessage = apiError.response?.data?.error || 'Server error.';
+      } else if (apiError.response?.status === 400) {
+        errorMessage = apiError.response?.data?.error || 'Invalid data provided.';
+      } else if (apiError.response?.status === 404) {
+        errorMessage = 'API endpoint not found.';
+      } else if (apiError.code === 'ECONNABORTED') {
+        errorMessage = 'Request timed out.';
+      } else if (apiError.code === 'Error' || !apiError.response) {
+        errorMessage = 'Network error. Check your connection.';
+      }
+
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: errorMessage,
+        position: 'bottom',
+      });
+    }
+  };
+
   const handleEdit = (orderItem: any) => {
-    setOrderDetails({
-      item_name: orderItem.item_name,
-      item_price: orderItem.item_price,
-      item_discount: orderItem.item_discount,
-    });
-    setEditingOrderItem(orderItem);
-    setImage(null); // Reset image selection
-    setOpened(true);
+    try {
+      setOrderDetails({
+        item_name: orderItem.item_name || '',
+        item_price: orderItem.item_price?.toString() || '',
+        item_discount: orderItem.item_discount?.toString() || '',
+      });
+      setEditingOrderItem(orderItem);
+      setImage(null);
+      setOpened(true);
+    } catch (error) {
+      console.error('Error handling edit:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'Failed to load item for editing.',
+        position: 'bottom',
+      });
+    }
   };
 
   const handleAddNew = () => {
@@ -443,7 +464,7 @@ const uploadImageToS3 = async (imageAsset: Asset): Promise<string> => {
         Toast.show({
           type: 'error',
           text1: 'Error',
-          text2: 'Customer ID not found',
+          text2: 'Customer ID not found. Please log in again.',
           position: 'bottom',
         });
         return;
@@ -451,61 +472,89 @@ const uploadImageToS3 = async (imageAsset: Asset): Promise<string> => {
 
       await axios.delete(
         `${API_IP_ADDRESS}/api/v1/order-items/${customerId}/${orderId}`,
+        { timeout: 30000 }
       );
       Toast.show({
         type: 'success',
         text1: 'Success',
-        text2: 'Order item deleted successfully',
+        text2: 'Order item deleted successfully.',
         position: 'bottom',
       });
       await fetchOrderItems(customerId);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error deleting order item:', error);
       Toast.show({
         type: 'error',
         text1: 'Error',
-        text2: 'Failed to delete order item',
+        text2: 'Failed to delete order item. Please try again.',
         position: 'bottom',
       });
     }
   };
 
-  const renderItem = ({item}: {item: any}) => (
-    <View style={[styles.itemContainer, tw`bg-white shadow-sm`]}>
-      <View style={styles.itemInfo}>
-        {item.item_image && (
-          <Image
-            source={{uri: item.item_image}}
-            style={styles.itemImage}
-            resizeMode="cover"
-          />
-        )}
-        <View style={styles.itemDetails}>
-          <Text style={styles.itemName}>{item.item_name}</Text>
-          <Text style={styles.itemPrice}>Price: ₹{item.item_price}</Text>
-          <Text style={styles.itemDiscount}>
-            Discount: {item.item_discount}%
-          </Text>
+  const renderItem = ({ item }: { item: any }) => {
+    const isValidImage = item.item_image && !item.item_image.includes('placeholder.com');
+    return (
+      <View style={[styles.itemContainer, tw`bg-white shadow-sm`]}>
+        <View style={styles.itemInfo}>
+          {isValidImage ? (
+            <>
+              {imageLoading[item.item_id] && (
+                <ActivityIndicator
+                  size="small"
+                  color="#3B82F6"
+                  style={styles.itemImage}
+                />
+              )}
+              <Image
+                source={{ uri: `${item.item_image}?t=${Date.now()}` }}
+                style={[styles.itemImage, imageLoading[item.item_id] && { display: 'none' }]}
+                resizeMode="cover"
+                onLoadStart={() => setImageLoading(prev => ({ ...prev, [item.item_id]: true }))}
+                onLoadEnd={() => setImageLoading(prev => ({ ...prev, [item.item_id]: false }))}
+                onError={(error) => {
+                  console.error('Image load error for', item.item_id, ':', error.nativeEvent);
+                  Toast.show({
+                    type: 'error',
+                    text1: 'Image Error',
+                    text2: `Failed to load image for ${item.item_name}`,
+                    position: 'bottom',
+                  });
+                }}
+              />
+            </>
+          ) : (
+            <View style={styles.itemImagePlaceholder}>
+              <Text style={tw`text-gray-500 text-sm`}>No Image</Text>
+            </View>
+          )}
+          <View style={styles.itemDetails}>
+            <Text style={styles.itemName}>{item.item_name}</Text>
+            <Text style={styles.itemPrice}>Price: ₹{item.item_price}</Text>
+            <Text style={styles.itemDiscount}>
+              Discount: {item.item_discount}%
+            </Text>
+          </View>
+        </View>
+        <View style={styles.itemActions}>
+          <TouchableOpacity
+            onPress={() => handleEdit(item)}
+            style={[styles.actionButton, tw`bg-blue-500 mr-2`]}>
+            <MaterialIcons name="edit" size={18} color="white" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => handleDelete(item.item_id)}
+            style={[styles.actionButton, tw`bg-red-500`]}>
+            <MaterialIcons name="delete" size={18} color="white" />
+          </TouchableOpacity>
         </View>
       </View>
-      <View style={styles.itemActions}>
-        <TouchableOpacity
-          onPress={() => handleEdit(item)}
-          style={[styles.actionButton, tw`bg-blue-500 mr-2`]}>
-          <MaterialIcons name="edit" size={18} color="white" />
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={() => handleDelete(item.item_id)}
-          style={[styles.actionButton, tw`bg-red-500`]}>
-          <MaterialIcons name="delete" size={18} color="white" />
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
+    );
+  };
 
   if (isLoading) {
     return (
-      <View style={tw`flex-1 justify-center items-center`}>
+      <View style={tw`flex-1 justify-center items-center bg-gray-100`}>
         <ActivityIndicator size="large" color="#0000ff" />
         <Text style={tw`mt-2 text-gray-600`}>Loading order items...</Text>
       </View>
@@ -514,7 +563,6 @@ const uploadImageToS3 = async (imageAsset: Asset): Promise<string> => {
 
   return (
     <View style={tw`flex-1 bg-gray-100`}>
-      {/* Mobile Header */}
       {isMobile && !sidebarVisible && (
         <View style={tw`bg-gray-800 w-full flex-row items-center p-4`}>
           <TouchableOpacity onPress={() => setSidebarVisible(true)}>
@@ -546,7 +594,7 @@ const uploadImageToS3 = async (imageAsset: Asset): Promise<string> => {
         {orderItems.length > 0 ? (
           <FlatList
             data={orderItems}
-            keyExtractor={item => item.item_id}
+            keyExtractor={item => item.item_id.toString()}
             renderItem={renderItem}
             contentContainerStyle={tw`pb-4`}
             ItemSeparatorComponent={() => <View style={tw`h-2`} />}
@@ -565,7 +613,11 @@ const uploadImageToS3 = async (imageAsset: Asset): Promise<string> => {
 
       <Modal
         visible={opened}
-        onRequestClose={() => setOpened(false)}
+        onRequestClose={() => {
+          setOpened(false);
+          setImage(null);
+          setOrderDetails({ item_name: '', item_price: '', item_discount: '' });
+        }}
         transparent
         animationType="slide">
         <KeyboardAvoidingView
@@ -580,23 +632,23 @@ const uploadImageToS3 = async (imageAsset: Asset): Promise<string> => {
               placeholder="Item Name"
               value={orderDetails.item_name}
               onChangeText={text =>
-                setOrderDetails({...orderDetails, item_name: text})
+                setOrderDetails({ ...orderDetails, item_name: text })
               }
               style={styles.input}
               placeholderTextColor="#9CA3AF"
             />
-            
+
             <TextInput
               placeholder="Item Price"
               value={orderDetails.item_price}
               onChangeText={text =>
-                setOrderDetails({...orderDetails, item_price: text})
+                setOrderDetails({ ...orderDetails, item_price: text })
               }
               keyboardType="numeric"
               style={styles.input}
               placeholderTextColor="#9CA3AF"
             />
-            
+
             <TextInput
               placeholder="Item Discount (%)"
               value={orderDetails.item_discount}
@@ -612,35 +664,61 @@ const uploadImageToS3 = async (imageAsset: Asset): Promise<string> => {
               onPress={selectImage}
               style={[styles.addButton, tw`bg-blue-500 mb-4`]}
               disabled={isUploading}>
-              <MaterialIcons 
-                name="photo-camera" 
-                size={20} 
-                color="white" 
-                style={tw`mr-2`} 
+              <MaterialIcons
+                name="photo-camera"
+                size={20}
+                color="white"
+                style={tw`mr-2`}
               />
-              <Text style={tw`text-white`}>
-                {image ? 'Change Image' : 
-                 editingOrderItem?.item_image ? 'Update Image' : 'Select Image'}
-              </Text>
+              <Text style={tw`text-white`}>{image ? 'Change Image' : 'Select Image'}</Text>
             </TouchableOpacity>
 
-            {/* Show current image or selected image */}
-            {(image?.uri || editingOrderItem?.item_image) && (
-              <View style={tw`items-center mb-4`}>
-                <Image
-                  source={{uri: image?.uri || editingOrderItem?.item_image}}
-                  style={styles.previewImage}
-                  resizeMode="contain"
-                />
-                {image && (
-                  <Text style={tw`text-sm text-gray-600 mt-2`}>
-                    New image selected
-                  </Text>
-                )}
-              </View>
-            )}
+            {(() => {
+              const previewUri = image?.uri || (editingOrderItem?.item_image && !editingOrderItem.item_image.includes('placeholder.com') ? editingOrderItem.item_image : 'https://via.placeholder.com/120');
+              const imageSource = previewUri.startsWith('file://') 
+                ? { uri: previewUri } 
+                : { uri: `${previewUri}?t=${Date.now()}` };
+              return previewUri && (
+                <View style={tw`items-center mb-4`}>
+                  {isPreviewLoading && (
+                    <ActivityIndicator size="small" color="#3B82F6" />
+                  )}
+                  <Image
+                    source={imageSource}
+                    style={[styles.previewImage, isPreviewLoading && { display: 'none' }]}
+                    resizeMode="contain"
+                    key={previewUri}
+                    onLoadStart={() => {
+                      Image.prefetch(previewUri).catch(() => {});
+                      setIsPreviewLoading(true);
+                    }}
+                    onLoadEnd={() => setIsPreviewLoading(false)}
+                    onError={(error) => {
+                      console.error('Modal image load error:', {
+                        error: error.nativeEvent,
+                        uri: previewUri,
+                        isLocalUri: previewUri.startsWith('file://') || !previewUri.includes('http'),
+                        isEditing: !!editingOrderItem,
+                        source: image ? 'newly selected' : editingOrderItem ? 'existing item' : 'placeholder',
+                      });
+                      setIsPreviewLoading(false);
+                      Toast.show({
+                        type: 'error',
+                        text1: 'Image Error',
+                        text2: 'Failed to load preview image.',
+                        position: 'bottom',
+                      });
+                    }}
+                  />
+                  {image && (
+                    <Text style={tw`text-sm text-gray-600 mt-2`}>
+                      New image selected
+                    </Text>
+                  )}
+                </View>
+              );
+            })()}
 
-            {/* Upload progress indicator */}
             {isUploading && (
               <View style={tw`items-center mb-4`}>
                 <ActivityIndicator size="small" color="#3B82F6" />
@@ -655,24 +733,18 @@ const uploadImageToS3 = async (imageAsset: Asset): Promise<string> => {
                 onPress={() => {
                   setOpened(false);
                   setImage(null);
+                  setOrderDetails({ item_name: '', item_price: '', item_discount: '' });
                 }}
                 style={[styles.button, tw`bg-gray-300 mr-2`]}
                 disabled={isUploading}>
                 <Text style={tw`text-gray-800`}>Cancel</Text>
               </TouchableOpacity>
-              
+
               <TouchableOpacity
-                onPress={handleAddNewOrder}
-                style={[
-                  styles.button, 
-                  tw`bg-blue-500`,
-                  isUploading && tw`opacity-50`
-                ]}
+                onPress={editingOrderItem ? handleUpdateOrder : handleAddNewOrder}
+                style={[styles.button, tw`bg-blue-500`, isUploading && tw`opacity-50`]}
                 disabled={isUploading}>
-                <Text style={tw`text-white`}>
-                  {isUploading ? 'Processing...' : 
-                   editingOrderItem ? 'Update' : 'Add'}
-                </Text>
+                <Text style={tw`text-white`}>{isUploading ? 'Processing...' : editingOrderItem ? 'Update' : 'Add'}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -692,6 +764,7 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 8,
     marginBottom: 8,
+    backgroundColor: '#fff',
   },
   itemInfo: {
     flexDirection: 'row',
@@ -703,11 +776,22 @@ const styles = StyleSheet.create({
     height: 50,
     borderRadius: 4,
     marginRight: 12,
+    backgroundColor: '#f0f0f0',
+  },
+  itemImagePlaceholder: {
+    width: 50,
+    height: 50,
+    borderRadius: 4,
+    marginRight: 12,
+    backgroundColor: '#f0f0f0',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   previewImage: {
     width: 120,
     height: 120,
     borderRadius: 8,
+    backgroundColor: '#f0f0f0',
   },
   itemDetails: {
     flex: 1,
@@ -751,10 +835,13 @@ const styles = StyleSheet.create({
   },
   modalContainer: {
     width: '90%',
-    maxHeight: '80%',
+    maxWidth: 400,
     backgroundColor: '#fff',
-    borderRadius: 8,
-    padding: 20,
+    borderRadius: 12,
+    padding: 24,
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    maxHeight: '80%',
   },
   modalTitle: {
     fontSize: 20,
@@ -777,6 +864,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'flex-end',
     marginTop: 16,
+    paddingHorizontal: 8,
   },
   button: {
     paddingVertical: 12,

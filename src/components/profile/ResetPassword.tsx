@@ -130,7 +130,8 @@ const ResetPassword = () => {
           <TextInput
             value={customerId}
             editable={false}
-            style={tw`bg-gray-100 border border-gray-300 rounded-lg p-3 mb-4 text-black-500`}
+           style={tw`bg-gray-100 border border-gray-300 rounded-lg p-3 mb-4 text-black`}
+
           />
 
           <Text style={tw`text-sm font-semibold mb-1`}>
@@ -139,7 +140,7 @@ const ResetPassword = () => {
           <TextInput
             value={customerUniqueId}
             editable={false}
-            style={tw`bg-gray-100 border border-gray-300 rounded-lg p-3 mb-4 text-black-500`}
+            style={tw`bg-gray-100 border border-gray-300 rounded-lg p-3 mb-4 text-black`}
           />
 
           {[
@@ -174,7 +175,7 @@ const ResetPassword = () => {
                   value={item.value}
                   onChangeText={item.onChangeText}
                   placeholder={`Enter ${item.label.toLowerCase()}`}
-                  style={tw`flex-1 p-3`}
+                  style={[tw`flex-1 p-3`, {color: 'black'}]} // <-- fixed color here
                 />
                 <TouchableOpacity onPress={item.toggle} style={tw`p-3`}>
                   <Ionicons

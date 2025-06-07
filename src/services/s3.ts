@@ -1,15 +1,5 @@
 import { S3Client } from '@aws-sdk/client-s3';
 import { AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION, BUCKET_NAME } from '@env';
-import { HttpRequest, HttpResponse } from '@aws-sdk/protocol-http';
-import { fetch } from 'react-native-fetch-polyfill';
-
-// Log environment config for debugging
-console.log('Environment Variables (raw Config):', {
-  AWS_ACCESS_KEY_ID: AWS_ACCESS_KEY_ID ? '[SET]' : undefined,
-  AWS_SECRET_ACCESS_KEY: AWS_SECRET_ACCESS_KEY ? '[REDACTED]' : undefined,
-  AWS_REGION,
-  BUCKET_NAME,
-});
 
 // Extract or fallback
 const accessKeyId: string = AWS_ACCESS_KEY_ID ?? '';
@@ -28,52 +18,13 @@ if (missingVars.length > 0) {
   throw new Error(`Missing required AWS configuration values in .env file: ${missingVars.join(', ')}`);
 }
 
-console.log('Resolved AWS Config:', {
-  accessKeyId: '[SET]',
-  secretAccessKey: '[REDACTED]',
-  region,
-  bucketName,
-});
-
-// Hermes-safe fetch handler
-const fetchHttpHandler = {
-  handle: async (request: HttpRequest): Promise<{ response: HttpResponse }> => {
-    try {
-      const url = `https://${request.hostname}${request.path}${
-        request.query ? `?${new URLSearchParams(request.query).toString()}` : ''
-      }`;
-
-      const response = await fetch(url, {
-        method: request.method,
-        headers: request.headers,
-        body: request.body,
-      });
-
-      const responseBody = await response.arrayBuffer();
-
-      return {
-        response: {
-          statusCode: response.status,
-          headers: Object.fromEntries(response.headers.entries()),
-          body: responseBody,
-        },
-      };
-    } catch (error: any) {
-      console.error('FetchHttpHandler Error:', error);
-      throw new Error(`HTTP Handler Error: ${error.message || 'Unknown error'}`);
-    }
-  },
-};
-
-// Export configured S3 client
+// ✅ Configure S3 client
 export const s3 = new S3Client({
   region,
   credentials: {
     accessKeyId,
     secretAccessKey,
+    
   },
-  httpHandler: fetchHttpHandler,
-  logger: {
-    trace: (msg) => console.log('S3 SDK:', msg),
-  },
+    forcePathStyle: true,
 });

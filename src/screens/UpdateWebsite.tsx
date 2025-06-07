@@ -7,10 +7,10 @@ import {
   Alert,
   Linking,
 } from 'react-native';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, Dispatch, SetStateAction } from 'react';
 import Clipboard from '@react-native-clipboard/clipboard';
 import FontAwesome from 'react-native-vector-icons/FontAwesome';
-import { useForm } from 'react-hook-form';
+import { useForm, Control } from 'react-hook-form';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import tw from 'twrnc';
@@ -19,10 +19,36 @@ import { API_IP_ADDRESS } from '../../config';
 import UpdateAIContentModal from '../components/website/Content';
 import UploadImagesModal from '../components/website/UploadImagesModal';
 import Toast from 'react-native-toast-message';
-import { FormValues, MediaCategory, RootStackParamList } from '../types';
-import { uploadToS3 } from '../components/website/UploadImagesModal';
+import { launchImageLibrary } from 'react-native-image-picker';
+import ReactNativeBlobUtil from 'react-native-blob-util';
+import RNFS from 'react-native-fs';
+import { s3, bucketName } from '../services/s3';
+import { PutObjectCommand } from '@aws-sdk/client-s3';
 
-const PREVIEW_URL_ENDPOINT = `${API_IP_ADDRESS}/api/get-preview-url`;
+// Define interfaces
+interface FormValues {
+  uploadedImages: {
+    landingPage: string[];
+    aboutUs: string[];
+    gallery: string[];
+    paymentQR: string[];
+    products: string[];
+    logo: string[];
+    items: string[];
+    videos: string[];
+  };
+}
+
+type RootStackParamList = {
+  Login: undefined;
+  EditCustomer: undefined;
+  SelectTemplate: undefined;
+  MenuSettings: undefined;
+  UploadImagesModal: undefined;
+  Content: undefined;
+};
+
+type MediaCategory = keyof FormValues['uploadedImages'] | 'services';
 
 const UpdateWebsite = () => {
   const initialFormValues: FormValues = {
@@ -54,6 +80,7 @@ const UpdateWebsite = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [selectedGallerySlot, setSelectedGallerySlot] = useState<number | null>(null);
   const [selectedProductSlot, setSelectedProductSlot] = useState<number | null>(null);
+  const [selectedServiceSlot, setSelectedServiceSlot] = useState<number | null>(null); // Added for UploadImagesModal
   const [formValues, setFormValues] = useState<FormValues>(initialFormValues);
   const [loading, setLoading] = useState(false);
 
@@ -96,8 +123,8 @@ const UpdateWebsite = () => {
             // {text: 'OK', onPress: () => router.navigate('Login')},
           ]);
         }
-      } catch (error) {
-        console.error('Erreur lors de la récupération de l\'ID client:', error);
+      } catch (error: any) {
+        console.error('Erreur lors de la récupération de l\'ID client:', error.message || error);
       }
     };
 
@@ -122,9 +149,9 @@ const UpdateWebsite = () => {
         setLoading(false);
         Alert.alert('Category ID not found for this customer.');
       }
-    } catch (error) {
+    } catch (error: any) {
       setLoading(false);
-      console.error('Error fetching category ID:', error);
+      console.error('Error fetching category ID:', error.message || error);
       Alert.alert('Error retrieving category information.');
     }
   };
@@ -137,6 +164,9 @@ const UpdateWebsite = () => {
       setIsUploading(true);
       console.log(`Uploading files for category: ${category}`);
 
+      // Map 'services' to 'products' for storage
+      const storageCategory = category === 'services' ? 'products' : category;
+
       const result = await launchImageLibrary({
         mediaType: category === 'videos' ? 'video' : 'photo',
         selectionLimit: 1,
@@ -148,7 +178,7 @@ const UpdateWebsite = () => {
         const s3Url = await uploadToS3({ uri: file.uri, type: file.type }, key);
 
         const updatedImages = [
-          ...(formValues.uploadedImages[category] || []),
+          ...(formValues.uploadedImages[storageCategory] || []),
           s3Url,
         ];
 
@@ -156,7 +186,7 @@ const UpdateWebsite = () => {
           ...formValues,
           uploadedImages: {
             ...formValues.uploadedImages,
-            [category]: updatedImages,
+            [storageCategory]: updatedImages,
           },
         };
 
@@ -168,7 +198,7 @@ const UpdateWebsite = () => {
           text2: `File uploaded to ${category}`,
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error uploading files:', error.message || error);
       Toast.show({
         type: 'error',
@@ -179,6 +209,61 @@ const UpdateWebsite = () => {
       setIsUploading(false);
     }
   };
+
+  async function uploadToS3(file: any, key: string) {
+    try {
+      if (!file.uri) throw new Error('Invalid file: URI is missing');
+      if (!bucketName) throw new Error('S3 bucket name is not configured');
+
+      const isVideo = file.type?.startsWith('video') || key.match(/\.(mp4|webm|avi)$/);
+      const contentType = file.type || (isVideo ? 'video/mp4' : 'image/jpeg');
+
+      if (isVideo) {
+        const filePath = file.uri.replace('file://', '');
+        const stat = await ReactNativeBlobUtil.fs.stat(filePath);
+        if (Number(stat.size) > 100 * 1024 * 1024) {
+          throw new Error('Video file too large. Please select a video under 100MB.');
+        }
+
+        const base64 = await ReactNativeBlobUtil.fs.readFile(filePath, 'base64');
+        const fileBuffer = Buffer.from(base64, 'base64');
+
+        const command = new PutObjectCommand({
+          Bucket: bucketName,
+          Key: key,
+          Body: fileBuffer,
+          ContentType: contentType,
+        });
+
+        await s3.send(command);
+
+        const region = 'ap-south-1';
+const s3Url = `https://${bucketName}.s3.amazonaws.com/${key}`;
+        return s3Url;
+      }
+
+      const base64 = await RNFS.readFile(file.uri, 'base64');
+      const fileBuffer = Buffer.from(base64, 'base64');
+
+      const command = new PutObjectCommand({
+        Bucket: bucketName,
+        Key: key,
+        Body: fileBuffer,
+        ContentType: contentType,
+      });
+
+      await s3.send(command);
+
+      const region = 'ap-south-1';
+      const s3Url = `https://${bucketName}.s3.amazonaws.com/${key}`;
+      return s3Url;
+    } catch (error: any) {
+      console.error('S3 Upload Error:', error.message || error);
+      throw new Error(`Failed to upload to S3: ${error.message}`);
+    }
+  }
+
+  
 
   const saveUploadedImages = async () => {
     try {
@@ -197,8 +282,8 @@ const UpdateWebsite = () => {
         text1: 'Success',
         text2: 'Images saved successfully!',
       });
-    } catch (error) {
-      console.error('Error saving images:', error);
+    } catch (error: any) {
+      console.error('Error saving images:', error.message || error);
       Toast.show({
         type: 'error',
         text1: 'Error',
@@ -282,8 +367,8 @@ const UpdateWebsite = () => {
           [{text: 'OK'}],
         );
       }
-    } catch (error) {
-      console.error('Error generating website:', error);
+    } catch (error: any) {
+      console.error('Error generating website:', error.message || error);
       Alert.alert('Error', 'An error occurred while generating the website.', [
         {text: 'OK'},
       ]);
@@ -292,58 +377,77 @@ const UpdateWebsite = () => {
     }
   };
 
-  const handlePreviewWebsite = async () => {
-    if (!customerId) {
-      Alert.alert('Login Required', 'Please login to continue.', [
-        // {text: 'OK', onPress: () => router.navigate('Login')},
-      ]);
-      return;
-    }
-
+  useEffect(() => {
+  const loadUploadedImages = async () => {
     try {
-      setPreviewLoading(true);
-
-      const response = await fetch(
-        `${API_IP_ADDRESS}/api/preview-website?cust_id=${encodeURIComponent(
-          customerId,
-        )}`,
-      );
-
-      if (!response.ok) {
-        const text = await response.text();
-        console.error('Server Error:', text);
-        throw new Error(`Failed to fetch preview data: ${response.statusText}`);
+      const saved = await AsyncStorage.getItem('uploadedImages');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        setFormValues(prev => ({
+          ...prev,
+          uploadedImages: parsed,
+        }));
+        console.log('✅ Refreshed uploadedImages from AsyncStorage:', parsed);
       }
-
-      const data = await response.json();
-      console.log('Preview Data:', data);
-
-      if (data.preview_url) {
-        Alert.alert('Success', `Preview URL generated successfully!`, [
-          {
-            text: 'Open Preview',
-            onPress: () => Linking.openURL(data.preview_url),
-          },
-          {
-            text: 'Cancel',
-            style: 'cancel',
-          },
-        ]);
-
-        await AsyncStorage.setItem('previewUrl', data.preview_url);
-        setPreviewSuccessful(true);
-      } else {
-        Alert.alert('Error', 'Preview URL not found.', [{text: 'OK'}]);
-      }
-    } catch (error) {
-      console.error('Error fetching preview:', error);
-      Alert.alert('Error', 'An error occurred while generating the preview.', [
-        {text: 'OK'},
-      ]);
-    } finally {
-      setPreviewLoading(false);
+    } catch (error: any) {
+      console.error('Failed to load uploaded images from storage:', error.message || error);
     }
   };
+
+  if (!uploadModalVisible) {
+    loadUploadedImages();
+  }
+}, [uploadModalVisible]);
+
+
+ const handlePreviewWebsite = async () => {
+  if (!customerId) {
+    Alert.alert('Login Required', 'Please login to continue.');
+    return;
+  }
+
+  try {
+    setPreviewLoading(true);
+
+    // ✅ Step 1: Save uploaded images to backend first
+    await saveUploadedImages();
+
+    // ✅ Step 2: Then trigger preview endpoint
+    const response = await fetch(
+      `${API_IP_ADDRESS}/api/preview-website?cust_id=${encodeURIComponent(customerId)}`
+    );
+
+    if (!response.ok) {
+      const text = await response.text();
+      console.error('Server Error:', text);
+      throw new Error(`Failed to generate preview: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    console.log('Preview Data:', data);
+
+    if (data.preview_url) {
+      Alert.alert('Success', 'Preview URL generated successfully!', [
+        {
+          text: 'Open Preview',
+          onPress: () => Linking.openURL(data.preview_url),
+        },
+        { text: 'Cancel', style: 'cancel' },
+      ]);
+
+      await AsyncStorage.setItem('previewUrl', data.preview_url);
+      setPreviewSuccessful(true);
+    } else {
+      Alert.alert('Error', 'Preview URL not found.');
+    }
+  } catch (error: any) {
+    console.error('Error generating preview:', error.message || error);
+    Alert.alert('Error', error.message || 'Failed to generate preview.');
+  } finally {
+    setPreviewLoading(false);
+  }
+};
+
 
   const handleDeployWebsite = async () => {
     if (!customerId) {
@@ -353,7 +457,7 @@ const UpdateWebsite = () => {
         text1: 'Login Required',
         text2: 'Please login to continue.',
         position: 'bottom',
-      });
+    });
       return;
     }
 
@@ -399,7 +503,7 @@ const UpdateWebsite = () => {
                 [{text: 'OK'}],
               );
             } catch (error: any) {
-              console.error('Error deploying website:', error);
+              console.error('Error deploying website:', error.message || error);
               Alert.alert(
                 'Error',
                 error.message || 'Error deploying website.',
@@ -447,8 +551,8 @@ const UpdateWebsite = () => {
               try {
                 Clipboard.setString(data.preview_url);
                 Alert.alert('Success', 'URL copied to clipboard');
-              } catch (e) {
-                console.error('Failed to copy URL:', e);
+              } catch (error: any) {
+                console.error('Failed to copy URL:', error.message || error);
                 Alert.alert('Error', 'Failed to copy URL');
               }
             },
@@ -466,7 +570,7 @@ const UpdateWebsite = () => {
         );
       }
     } catch (error: any) {
-      console.error('Error fetching preview URL:', error);
+      console.error('Error fetching preview URL:', error.message || error);
       Alert.alert('Error', error.message || 'Failed to fetch preview URL');
     } finally {
       setPreviewUrlLoading(false);
@@ -620,6 +724,8 @@ const UpdateWebsite = () => {
         setSelectedGallerySlot={setSelectedGallerySlot}
         selectedProductSlot={selectedProductSlot}
         setSelectedProductSlot={setSelectedProductSlot}
+        selectedServiceSlot={selectedServiceSlot}
+        setSelectedServiceSlot={setSelectedServiceSlot}
       />
     </ScrollView>
   );
@@ -627,7 +733,7 @@ const UpdateWebsite = () => {
 
 export default UpdateWebsite;
 
-const buttonData = [
+const buttonData: { icon: string; text: string; route: keyof RootStackParamList }[] = [
   { icon: 'edit', text: 'Edit Customer Details', route: 'EditCustomer' },
   { icon: 'th-large', text: 'Select Template', route: 'SelectTemplate' },
   { icon: 'cog', text: 'Open Menu Settings', route: 'MenuSettings' },
