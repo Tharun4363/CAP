@@ -286,7 +286,7 @@ const InventoryStatus: React.FC = () => {
       onRequestClose={() => setAddModalVisible(false)}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={[tw`flex-1 justify-center px-4`, {marginTop: 150}]}>
+        style={[tw`flex-1 justify-center px-4`, {marginTop: 6}]}>
         <View style={tw`bg-white rounded-lg p-6 shadow-lg mx-2`}>
           <Text style={tw`text-xl font-bold mb-4 text-center text-gray-800`}>
             Add New Inventory

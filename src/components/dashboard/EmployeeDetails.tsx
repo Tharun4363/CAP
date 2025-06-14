@@ -179,19 +179,26 @@ const EmployeeDetails: React.FC = () => {
         });
       }
     } catch (error: any) {
-      console.error('Error fetching employee data:', error.message);
-      if (error.message === 'Network Error') {
-        setConnectionError(true);
-      }
-      Toast.show({
-        type: 'error',
-        text1: 'Error',
-        text2: 'Failed to fetch employee data: ' + error.message,
-        position: 'bottom',
-      });
-    } finally {
-      setRefreshing(false);
+  if (error.response?.status === 404) {
+    console.log('No employee data found.');
+    setEmployeeData([]); // handled gracefully
+  } else {
+    console.error('Error fetching employee data:', error.message);
+
+    if (error.message === 'Network Error') {
+      setConnectionError(true);
     }
+
+    Toast.show({
+      type: 'error',
+      text1: 'Error',
+      text2: 'Failed to fetch employee data: ' + error.message,
+      position: 'bottom',
+    });
+  }
+} finally {
+  setRefreshing(false);
+}
   };
 
   useEffect(() => {
@@ -559,7 +566,7 @@ const EmployeeDetails: React.FC = () => {
                 setNewEmployee({ ...newEmployee, phone_no_1: text });
                 setErrors({ ...errors, phone_no_1: null });
               }}
-              maxLength={15}
+              maxLength={10}
             />
             {errors.phone_no_1 && (
               <Text style={tw`text-red-500 text-sm mb-3`}>{errors.phone_no_1}</Text>
@@ -575,7 +582,7 @@ const EmployeeDetails: React.FC = () => {
                 setNewEmployee({ ...newEmployee, phone_no_2: text });
                 setErrors({ ...errors, phone_no_2: null });
               }}
-              maxLength={15}
+              maxLength={10}
             />
             {errors.phone_no_2 && (
               <Text style={tw`text-red-500 text-sm mb-3`}>{errors.phone_no_2}</Text>
@@ -794,7 +801,7 @@ const EmployeeDetails: React.FC = () => {
                   setErrors({ ...errors, phone_no_1: null });
                 }
               }}
-              maxLength={15}
+              maxLength={10}
             />
             {errors.phone_no_1 && (
               <Text style={tw`text-red-500 text-sm mb-3`}>{errors.phone_no_1}</Text>
@@ -812,7 +819,7 @@ const EmployeeDetails: React.FC = () => {
                   setErrors({ ...errors, phone_no_2: null });
                 }
               }}
-              maxLength={15}
+              maxLength={10}
             />
             {errors.phone_no_2 && (
               <Text style={tw`text-red-500 text-sm mb-3`}>{errors.phone_no_2}</Text>

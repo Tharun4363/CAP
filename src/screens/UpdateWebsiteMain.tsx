@@ -250,6 +250,7 @@ const s3Url = `https://${bucketName}.s3.amazonaws.com/${key}`;
         Key: key,
         Body: fileBuffer,
         ContentType: contentType,
+        ACL : 'public-read',
       });
 
       await s3.send(command);

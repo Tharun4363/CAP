@@ -1,7 +1,7 @@
+// UpdateWebsiteNavigator.tsx
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-
-import UpdateWebsite from '../screens/UpdateWebsite';
+import UpdateWebsite from './UpdateWebsiteMain';
 import EditCustomer from '../components/website/EditCustomer';
 import MenuSettings from '../components/website/MenuSettings';
 import Deploy from '../components/website/Deploy';
@@ -12,7 +12,7 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 export type RootStackParamList = {
-  UpdateWebsite: undefined;
+  UpdateWebsiteMain: undefined; // Renamed
   EditCustomer: undefined;
   MenuSettings: undefined;
   Previewurl: undefined;
@@ -24,25 +24,16 @@ export type RootStackParamList = {
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
-// Wrapper component for Content
 const ContentWrapper: React.FC = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
-  return (
-    <Content
-      visible={true}
-      onClose={() => navigation.goBack()}
-    />
-  );
+  return <Content visible={true} onClose={() => navigation.goBack()} />;
 };
 
 export default function App() {
   return (
-    <Stack.Navigator
-      initialRouteName="UpdateWebsite"
-      screenOptions={{ headerShown: false }}
-    >
-      <Stack.Screen name="UpdateWebsite" component={UpdateWebsite} />
+    <Stack.Navigator initialRouteName="UpdateWebsiteMain" screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="UpdateWebsiteMain" component={UpdateWebsite} />
       <Stack.Screen name="EditCustomer" component={EditCustomer} />
       <Stack.Screen name="MenuSettings" component={MenuSettings} />
       <Stack.Screen name="Previewurl" component={PreviewUrl} />

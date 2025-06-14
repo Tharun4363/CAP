@@ -1,41 +1,42 @@
-import React, {useEffect, useState} from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   Dimensions,
   ScrollView,
-  StyleSheet,
   TextInput,
   FlatList,
+  Modal,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import {useNavigation} from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import tw from 'tailwind-react-native-classnames';
 import Sidebar from './Sidebar';
-import {API_IP_ADDRESS} from '../../../config';
+import { API_IP_ADDRESS } from '../../../config';
 import axios from 'axios';
-import {format} from 'date-fns';
+import { format } from 'date-fns';
 import Toast from 'react-native-toast-message';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
-// Create a configured axios instance with timeout and retry logic
+// Configure axios instance
 const api = axios.create({
   baseURL: API_IP_ADDRESS,
-  timeout: 15000, // 15 seconds timeout
+  timeout: 15000,
   headers: {
     'Content-Type': 'application/json',
     Accept: 'application/json',
   },
 });
 
-// Add request interceptor for logging
+// Request interceptor for logging
 api.interceptors.request.use(request => {
   console.log('Starting Request:', request.method, request.url);
   return request;
 });
 
-// Add response interceptor for logging
+// Response interceptor for logging
 api.interceptors.response.use(
   response => {
     console.log('Response:', response.status);
@@ -50,38 +51,92 @@ api.interceptors.response.use(
     return Promise.reject(error);
   },
 );
+
+// Custom Dropdown Component
+const CustomDropdown = ({
+  label,
+  selectedValue,
+  onSelect,
+  options,
+  placeholder,
+}: {
+  label: string;
+  selectedValue: string;
+  onSelect: (value: string) => void;
+  options: { label: string; value: string }[];
+  placeholder: string;
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <View style={tw`mb-4`}>
+      <Text style={tw`text-sm font-semibold mb-2 text-gray-700`}>{label}</Text>
+      <TouchableOpacity
+        onPress={() => setIsOpen(!isOpen)}
+        style={tw`border border-gray-300 rounded p-3 bg-white flex-row items-center justify-between`}>
+        <Text style={tw`text-gray-700 text-sm flex-1`}>
+          {selectedValue
+            ? options.find(opt => opt.value === selectedValue)?.label
+            : placeholder}
+        </Text>
+        <MaterialIcons
+          name={isOpen ? 'arrow-drop-up' : 'arrow-drop-down'}
+          size={24}
+          color="#4A5568"
+        />
+      </TouchableOpacity>
+      {isOpen && (
+        <View
+          style={tw`absolute top-16 left-0 right-0 bg-white border border-gray-300 rounded shadow-lg z-10 max-h-40`}>
+         <ScrollView style={{ maxHeight: 160 }}>
+  {options.map(item => (
+    <TouchableOpacity
+      key={item.value}
+      onPress={() => {
+        console.log(`${label} selected:`, item.value);
+        onSelect(item.value);
+        setIsOpen(false);
+      }}
+      style={tw`p-3 border-b border-gray-200`}>
+      <Text style={tw`text-gray-700 text-sm`}>{item.label}</Text>
+    </TouchableOpacity>
+  ))}
+</ScrollView>
+
+        </View>
+      )}
+    </View>
+  );
+};
+
 const EmployeeTimesheets: React.FC = () => {
   const navigation = useNavigation();
-  const [custId, setCustId] = useState<string | null>(null);
   const [sidebarVisible, setSidebarVisible] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [schemaName, setSchemaName] = useState('');
   const [timesheetData, setTimesheetData] = useState<any[]>([]);
-  const [employeeNames, setEmployeeNames] = useState<string[]>([]);
+  const [employeeNames, setEmployeeNames] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [connectionError, setConnectionError] = useState(false);
+  const [addModalVisible, setAddModalVisible] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [currentDate, setCurrentDate] = useState(new Date());
 
-  const toggleSidebar = () => setSidebarVisible(!sidebarVisible);
-  // Modal states
-  const [addModalVisible, setAddModalVisible] = useState(false);
-  const [editModalVisible, setEditModalVisible] = useState(false);
-
-  // Form states
   const [newTimesheet, setNewTimesheet] = useState({
-    emp_id: '',
+    emp_id: '' as string | null,
     work_date: format(new Date(), 'yyyy-MM-dd'),
     work_hrs: '8',
-    attendance_flag: 'Y',
+    attendance_flag: 'Y' as string | null,
     description: '',
-    arg1: '',
-    arg2: '',
-    arg3: '',
   });
 
-  const [editingTimesheet, setEditingTimesheet] = useState(null);
+  const attendanceOptions = [
+    { label: 'Present', value: 'Y' },
+    { label: 'Absent', value: 'N' },
+  ];
+
+  const toggleSidebar = () => setSidebarVisible(!sidebarVisible);
 
   useEffect(() => {
     const loadCustomerId = async () => {
@@ -116,6 +171,7 @@ const EmployeeTimesheets: React.FC = () => {
 
     loadCustomerId();
   }, []);
+
   // Fetch employee names
   const fetchEmployeeNames = async (customerId = schemaName) => {
     setConnectionError(false);
@@ -138,6 +194,7 @@ const EmployeeTimesheets: React.FC = () => {
     }
   };
 
+  // Fetch timesheet data
   const fetchTimesheetData = async (customerId = schemaName) => {
     setRefreshing(true);
     setConnectionError(false);
@@ -146,6 +203,14 @@ const EmployeeTimesheets: React.FC = () => {
         `/api/v1/timesheets-by-schema/${customerId}`,
       );
       console.log('Timesheet data received:', response.data || 'no data');
+      console.log(
+        'Timesheet details:',
+        response.data.map((item: { id: any; emp_id: any; work_date: any; }) => ({
+          id: item.id,
+          emp_id: item.emp_id,
+          work_date: item.work_date,
+        })),
+      );
 
       if (Array.isArray(response.data)) {
         setTimesheetData(response.data);
@@ -167,11 +232,50 @@ const EmployeeTimesheets: React.FC = () => {
     }
   };
 
-  const handleApiError = (action: any, error: any) => {
+  // Handle adding a new timesheet
+  const handleAddNew = async () => {
+    const { emp_id, work_date, attendance_flag } = newTimesheet;
+
+    if (!emp_id || !work_date || !attendance_flag) {
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'Please fill in all required fields.',
+      });
+      return;
+    }
+
+    try {
+      await api.post(`/api/v1/timesheets-by-schema/${schemaName}`, {
+        emp_id,
+        work_date,
+        work_hrs: newTimesheet.work_hrs,
+        attendance_flag,
+        description: newTimesheet.description,
+      });
+      Toast.show({
+        type: 'success',
+        text1: 'Success',
+        text2: 'Timesheet added successfully',
+      });
+      setAddModalVisible(false);
+      setNewTimesheet({
+        emp_id: '',
+        work_date: format(new Date(), 'yyyy-MM-dd'),
+        work_hrs: '8',
+        attendance_flag: 'Y',
+        description: '',
+      });
+      fetchTimesheetData(schemaName);
+    } catch (error: any) {
+      handleApiError('adding new timesheet', error);
+    }
+  };
+
+  const handleApiError = (action: string, error: any) => {
     console.error(`Error ${action}:`, error);
 
     let errorMessage = 'An unknown error occurred';
-
     if (error.message === 'Network Error') {
       errorMessage = 'Cannot connect to server. Please check your connection.';
     } else if (error.response) {
@@ -194,7 +298,7 @@ const EmployeeTimesheets: React.FC = () => {
 
   useEffect(() => {
     const updateLayout = () => {
-      const {width} = Dimensions.get('window');
+      const { width } = Dimensions.get('window');
       setIsMobile(width < 768);
     };
 
@@ -202,6 +306,17 @@ const EmployeeTimesheets: React.FC = () => {
     const subscription = Dimensions.addEventListener('change', updateLayout);
     return () => subscription?.remove?.();
   }, []);
+
+  const onDateChange = (event: any, selectedDate: Date | undefined) => {
+    setShowDatePicker(false);
+    if (selectedDate) {
+      setCurrentDate(selectedDate);
+      setNewTimesheet({
+        ...newTimesheet,
+        work_date: format(selectedDate, 'yyyy-MM-dd'),
+      });
+    }
+  };
 
   return (
     <View style={tw`flex-1 bg-white`}>
@@ -226,20 +341,23 @@ const EmployeeTimesheets: React.FC = () => {
       />
 
       <ScrollView
-        contentContainerStyle={tw`p-4`}
-        style={{marginTop: isMobile ? 60 : 0}}>
+        contentContainerStyle={tw`p-4 flex-grow`}
+        style={{ marginTop: isMobile ? 60 : 0 }}>
         <Text style={tw`text-2xl font-semibold text-gray-800 mb-2`}>
           Timesheet Data
         </Text>
         <Text style={tw`text-base text-gray-700 mb-4`}>
           Customer ID: {schemaName ?? 'Loading...'}
         </Text>
-        {/* <TouchableOpacity
-          onPress={() => setIsAddModalVisible(true)}
-          style={tw`ml-auto bg-blue-500 p-2 rounded flex-row items-center`}>
+        <TouchableOpacity
+          onPress={() => {
+            console.log('Add Timesheet button pressed');
+            setAddModalVisible(true);
+          }}
+          style={tw`bg-blue-500 p-3 rounded flex-row items-center mb-4 self-end`}>
           <MaterialIcons name="add" size={20} color="white" />
-          <Text style={tw`ml-2 text-white`}>Add Timesheet</Text>
-        </TouchableOpacity> */}
+          <Text style={tw`ml-2 text-white font-semibold`}>Add New Timesheet</Text>
+        </TouchableOpacity>
 
         {/* Horizontal Scroll Container */}
         <ScrollView horizontal showsHorizontalScrollIndicator={true}>
@@ -250,20 +368,19 @@ const EmployeeTimesheets: React.FC = () => {
               <Text style={tw`w-32 font-bold text-gray-700`}>Customer ID</Text>
               <Text style={tw`w-32 font-bold text-gray-700`}>Employee ID</Text>
               <Text style={tw`w-64 font-bold text-gray-700`}>Description</Text>
-              <Text style={tw`w-64 font-bold text-gray-700`}>
-                Attendance Flag
-              </Text>
+              <Text style={tw`w-64 font-bold text-gray-700`}>Attendance Flag</Text>
               <Text style={tw`w-32 font-bold text-gray-700`}>Hours</Text>
-              {/* Add more headers if needed */}
             </View>
 
             {/* Table Rows */}
             {timesheetData.length > 0 ? (
               <FlatList
                 data={timesheetData}
-                keyExtractor={item => item.id}
+                keyExtractor={(item, index) =>
+                  item.id ? item.id.toString() : `${item.emp_id}-${item.work_date}-${index}`
+                }
                 scrollEnabled={false}
-                renderItem={({item}) => (
+                renderItem={({ item }) => (
                   <View
                     style={tw`flex-row p-3 border-b border-gray-200 min-w-full`}>
                     <Text style={tw`w-32 text-gray-600`}>
@@ -272,13 +389,12 @@ const EmployeeTimesheets: React.FC = () => {
                     <Text style={tw`w-32 text-gray-600`}>{item.cust_id}</Text>
                     <Text style={tw`w-32 text-gray-600`}>{item.emp_id}</Text>
                     <Text style={tw`w-64 text-gray-600`} numberOfLines={1}>
-                      {item.description}
+                      {item.description || 'N/A'}
                     </Text>
                     <Text style={tw`w-64 text-gray-600`} numberOfLines={1}>
-                      {item.attendance_flag}
+                      {item.attendance_flag === 'Y' ? 'Present' : 'Absent'}
                     </Text>
                     <Text style={tw`w-32 text-gray-600`}>{item.work_hrs}</Text>
-                    {/* Add more columns if needed */}
                   </View>
                 )}
               />
@@ -292,13 +408,11 @@ const EmployeeTimesheets: React.FC = () => {
 
             {/* Summary Row */}
             {timesheetData.length > 0 && (
-              <View style={tw`flex-row bg-gray-50 p-3 `}>
-                <Text style={tw`w-96 font-bold text-gray-700`}>
-                  Total Hours
-                </Text>
+              <View style={tw`flex-row bg-gray-50 p-3 min-w-full`}>
+                <Text style={tw`w-96 font-bold text-gray-700`}>Total Hours</Text>
                 <Text style={tw`w-32 font-bold text-gray-700`}>
                   {timesheetData.reduce(
-                    (sum, item) => sum + parseFloat(item.work_hrs || 0),
+                    (sum, item) => sum +parseFloat(item.work_hrs || '0'),
                     0,
                   )}
                 </Text>
@@ -306,6 +420,114 @@ const EmployeeTimesheets: React.FC = () => {
             )}
           </View>
         </ScrollView>
+
+        {/* Add Timesheet Modal */}
+        <Modal
+          animationType="slide"
+          transparent={true}
+          visible={addModalVisible}
+          onRequestClose={() => setAddModalVisible(false)}>
+          <View style={tw`flex-1 justify-center items-center bg-black bg-opacity-50`}>
+          <View
+  style={[
+    tw`bg-white p-6 rounded-lg w-11/12`,
+    {
+      maxHeight: Dimensions.get('window').height * 0.75, // 75vh equivalent
+    },
+  ]}
+>
+
+              <ScrollView contentContainerStyle={tw`pb-10 flex-grow`}>
+                <Text style={tw`text-lg font-bold mb-4 text-gray-800`}>
+                  Add New Timesheet
+                </Text>
+
+                <CustomDropdown
+                  label="Employee"
+                  selectedValue={newTimesheet.emp_id || ''}
+                  onSelect={value =>
+                    setNewTimesheet({ ...newTimesheet, emp_id: value })
+                  }
+                  options={employeeNames.map(emp => ({
+                    label: emp.employee_name,
+                    value: emp.emp_id,
+                  }))}
+                  placeholder="Select Employee"
+                />
+
+                <Text style={tw`text-sm font-semibold mb-2 text-gray-700`}>
+                  Work Date
+                </Text>
+                <TouchableOpacity
+                  onPress={() => setShowDatePicker(true)}
+                  style={tw`border border-gray-300 rounded p-3 mb-4 bg-white flex-row items-center justify-between`}>
+                  <Text style={tw`text-gray-700 flex-1 text-sm`}>{newTimesheet.work_date}</Text>
+                  <MaterialIcons name="calendar-today" size={20} color="#4A5568" />
+                </TouchableOpacity>
+                {showDatePicker && (
+                  <DateTimePicker
+                    value={currentDate}
+                    mode="date"
+                    display="default"
+                    onChange={onDateChange}
+                  />
+                )}
+
+                <Text style={tw`text-sm font-semibold mb-2 text-gray-700`}>
+                  Work Hours
+                </Text>
+                <TextInput
+                  style={tw`border border-gray-300 rounded p-5 mb-4 bg-white text-gray-700 w-full text-sm`}
+                  value={newTimesheet.work_hrs}
+                  onChangeText={(text) =>
+                    setNewTimesheet({ ...newTimesheet, work_hrs: text })
+                  }
+                  keyboardType="numeric"
+                  placeholder="Hours"
+                  placeholderTextColor="#A0AEC0"
+                />
+
+                <CustomDropdown
+                  label="Attendance"
+                  selectedValue={newTimesheet.attendance_flag || 'Y'}
+                  onSelect={value =>
+                    setNewTimesheet({ ...newTimesheet, attendance_flag: value })
+                  }
+                  options={attendanceOptions}
+                  placeholder="Select Attendance"
+                />
+
+                <Text style={tw`text-sm font-semibold mb-2 text-gray-700`}>
+                  Description
+                </Text>
+                <TextInput
+                  style={tw`border border-gray-300 rounded p-5 mb-4 bg-white text-gray-700 w-full h-24 text-sm`}
+                  value={newTimesheet.description}
+                  onChangeText={(text) =>
+                    setNewTimesheet({ ...newTimesheet, description: text })
+                  }
+                  multiline
+                  numberOfLines={4}
+                  placeholder="Description"
+                  placeholderTextColor="#A0AEC0"
+                />
+
+                <View style={tw`flex-row justify-end mt-4`}>
+                  <TouchableOpacity
+                    onPress={() => setAddModalVisible(false)}
+                    style={tw`bg-gray-300 p-3 rounded mr-2`}>
+                    <Text style={tw`text-gray-700 font-semibold`}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={handleAddNew}
+                    style={tw`bg-blue-500 p-3 rounded`}>
+                    <Text style={tw`text-white font-semibold`}>Add Timesheet</Text>
+                  </TouchableOpacity>
+                </View>
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
       </ScrollView>
     </View>
   );

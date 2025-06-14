@@ -1,20 +1,19 @@
 import React from 'react';
-import {enableScreens} from 'react-native-screens';
-import {NavigationContainer} from '@react-navigation/native';
-import {createNativeStackNavigator} from '@react-navigation/native-stack';
-import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
+import { enableScreens } from 'react-native-screens';
+import { NavigationContainer } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import Icon from 'react-native-vector-icons/Ionicons';
-
-import {ActivityIndicator, View} from 'react-native';
-import {AuthProvider, useAuth} from './Auth/AuthContext';
-import {Provider as PaperProvider} from 'react-native-paper';
+import { ActivityIndicator, View } from 'react-native';
+import { AuthProvider, useAuth } from './Auth/AuthContext';
+import { Provider as PaperProvider } from 'react-native-paper';
 import 'react-native-url-polyfill';
 
 // Your screens
 import Home from './screens/Home';
 import LoginScreen from './screens/LoginScreen';
-import UpdateWebsite from './screens/UpdateWebsite';
-import ProfileNavigator from './screens/ProfileNavigator'; // Already handling Profile stack
+import UpdateWebsite from './screens/UpdateWebsiteMain';
+import ProfileNavigator from './screens/ProfileNavigator';
 import CRMNavigator from './screens/CRMNavigator';
 import UpdateWebsiteNavigator from './screens/UpdateWebsiteNavigator';
 
@@ -22,8 +21,8 @@ export type RootStackParamList = {
   Home: undefined;
   Details: undefined;
   Login: undefined;
-  UpdateWebsite: undefined;
-  Profile: undefined;
+  UpdateWebsiteTab: undefined; // Renamed
+  ProfileTab: undefined; // Renamed
   CRM: undefined;
   ViewProfile: undefined;
 };
@@ -31,19 +30,19 @@ export type RootStackParamList = {
 export type TabParamList = {
   Home: undefined;
   CRM: undefined;
-  UpdateWebsite: undefined;
-  Profile: undefined;
+  UpdateWebsiteTab: undefined; // Renamed
+  ProfileTab: undefined; // Renamed
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<TabParamList>();
 
 function AppNavigator() {
-  const {isAuthenticated, loading} = useAuth();
+  const { isAuthenticated, loading } = useAuth();
 
   if (loading) {
     return (
-      <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
         <ActivityIndicator size="large" />
       </View>
     );
@@ -54,9 +53,9 @@ function AppNavigator() {
       <NavigationContainer>
         {isAuthenticated ? (
           <Tab.Navigator
-            screenOptions={({route}) => ({
+            screenOptions={({ route }) => ({
               headerShown: false,
-              tabBarIcon: ({focused, color, size}) => {
+              tabBarIcon: ({ focused, color, size }) => {
                 let iconName: string;
 
                 switch (route.name) {
@@ -66,31 +65,29 @@ function AppNavigator() {
                   case 'CRM':
                     iconName = focused ? 'people' : 'people-outline';
                     break;
-                  case 'UpdateWebsite':
+                  case 'UpdateWebsiteTab': // Updated
                     iconName = focused ? 'construct' : 'construct-outline';
                     break;
-                  case 'Profile':
+                  case 'ProfileTab': // Updated
                     iconName = focused ? 'person' : 'person-outline';
                     break;
                   default:
-                    iconName = 'home'; // Default icon
+                    iconName = 'home';
                 }
 
                 return <Icon name={iconName} size={size} color={color} />;
               },
-              tabBarActiveTintColor: '#000', // Active icon/text color
-              tabBarInactiveTintColor: 'gray', // Inactive icon/text color
-            })}>
+              tabBarActiveTintColor: '#000',
+              tabBarInactiveTintColor: 'gray',
+            })}
+          >
             <Tab.Screen name="Home" component={Home} />
             <Tab.Screen name="CRM" component={CRMNavigator} />
-            <Tab.Screen
-              name="UpdateWebsite"
-              component={UpdateWebsiteNavigator}
-            />
-            <Tab.Screen name="Profile" component={ProfileNavigator} />
+            <Tab.Screen name="UpdateWebsiteTab" component={UpdateWebsiteNavigator} />
+            <Tab.Screen name="ProfileTab" component={ProfileNavigator} />
           </Tab.Navigator>
         ) : (
-          <Stack.Navigator screenOptions={{headerShown: false}}>
+          <Stack.Navigator screenOptions={{ headerShown: false }}>
             <Stack.Screen name="Login" component={LoginScreen} />
           </Stack.Navigator>
         )}

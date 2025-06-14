@@ -1,3 +1,4 @@
+
 import {
   Modal,
   View,
@@ -84,7 +85,7 @@ async function uploadToS3(file: any, key: string) {
       await s3.send(command);
 
       const region = 'ap-south-1';
-      const s3Url = `https://${bucketName}.s3.amazonaws.com/${key}`;
+      const s3Url = `http://${bucketName}.s3.amazonaws.com/${key}`;
       return s3Url;
     }
 
@@ -101,7 +102,7 @@ async function uploadToS3(file: any, key: string) {
     await s3.send(command);
 
     const region = 'ap-south-1';
-    const s3Url = `https://${bucketName}.s3.amazonaws.com/${key}`;
+    const s3Url = `http://${bucketName}.s3.amazonaws.com/${key}`;
     return s3Url;
   } catch (err: any) {
     console.error('S3 Upload Error:', err.message || err);
@@ -183,6 +184,33 @@ export default function UploadImagesModal({
   const [videoUrls, setVideoUrls] = useState<string[]>(new Array(10).fill(''));
   const [isLocalUploading, setIsLocalUploading] = useState(false);
   const [menuSettings, setMenuSettings] = useState<any>(null);
+
+  // Reset states when modal is closed
+  const handleClose = () => {
+    setFormValues({
+      ...formValues,
+      uploadedImages: {
+        landingPage: [],
+        aboutUs: [],
+        gallery: [],
+        products: [],
+        services: [],
+        paymentQR: [],
+        logo: [],
+        items: [],
+        videos: [],
+      },
+    });
+    setSelectedCategory('landingPage');
+    setShowImageSelection(false);
+    setSelectedOption('custom');
+    setDatabaseImages([]);
+    setVideoUrls(new Array(10).fill(''));
+    setSelectedGallerySlot(null);
+    setSelectedProductSlot(null);
+    setSelectedServiceSlot(null);
+    onClose();
+  };
 
   useEffect(() => {
     const fetchCustIdAndSettings = async () => {
@@ -460,14 +488,13 @@ export default function UploadImagesModal({
 
       const result = await launchImageLibrary({
         mediaType: selectedCategory === 'videos' ? 'video' : 'photo',
-        selectionLimit: categoryLimits[selectedCategory] || 0, // Use category limit
+        selectionLimit: categoryLimits[selectedCategory] || 0,
       });
 
       if (!result.didCancel && result.assets?.length) {
         console.log('Selected assets:', result.assets);
         const storageCategory = selectedCategory === 'services' ? 'products' : selectedCategory;
 
-        // Single-image categories
         if (
           selectedCategory === 'logo' ||
           selectedCategory === 'landingPage' ||
@@ -504,11 +531,9 @@ export default function UploadImagesModal({
           return;
         }
 
-        // Multi-image categories (including items)
         const newUris = result.assets.map((asset: any) => asset.uri);
         console.log(`Selected multiple URIs for ${selectedCategory}:`, newUris);
 
-        // Calculate current images and check limits
         const currentImages = formValues.uploadedImages[storageCategory] || [];
         const totalImages = currentImages.length + newUris.length;
 
@@ -654,7 +679,6 @@ export default function UploadImagesModal({
         }
       }
 
-      // Map services to products for backend
       if (formValues.uploadedImages.services) {
         uploadedUrls.products = [
           ...(uploadedUrls.products || []),
@@ -663,13 +687,6 @@ export default function UploadImagesModal({
       }
 
       console.log('All uploaded URLs:', uploadedUrls);
-
-      setFormValues({ ...formValues, uploadedImages: uploadedUrls });
-
-      const backendCategory = categoryMapping[selectedCategory];
-      if (!backendCategory) {
-        throw new Error(`No backend category mapping for ${selectedCategory}`);
-      }
 
       const payload = {
         cust_id: custId,
@@ -699,7 +716,23 @@ export default function UploadImagesModal({
         text2: 'Images have been uploaded and saved',
       });
 
-      onClose();
+      // Reset uploadedImages after successful upload
+      setFormValues({
+        ...formValues,
+        uploadedImages: {
+          landingPage: [],
+          aboutUs: [],
+          gallery: [],
+          products: [],
+          services: [],
+          paymentQR: [],
+          logo: [],
+          items: [],
+          videos: [],
+        },
+      });
+
+      handleClose(); // Close the modal and reset states
     } catch (error: any) {
       console.error(`Upload error for ${selectedCategory}:`, error.message || error);
       Toast.show({
@@ -733,7 +766,7 @@ export default function UploadImagesModal({
   const getVideoThumbnail = (mediaURL: string) => {
     const youtubeId = extractYoutubeVideoId(mediaURL);
     if (youtubeId) {
-      return `https://img.youtube.com/vi/${youtubeId}/0.jpg`;
+      return `http://img.youtube.com/vi/${youtubeId}/0.jpg`;
     }
     return null;
   };
@@ -980,7 +1013,7 @@ export default function UploadImagesModal({
           <View style={styles.modalContent}>
             <View style={tw.style(`flex-row justify-between items-center p-6 border-b border-gray-200`)}>
               <Text style={tw.style(`text-lg font-bold`)}>Upload Images</Text>
-              <TouchableOpacity onPress={onClose}>
+              <TouchableOpacity onPress={handleClose}>
                 <Ionicons name="close" size={24} color="black" />
               </TouchableOpacity>
             </View>
