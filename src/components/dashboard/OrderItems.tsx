@@ -23,7 +23,7 @@ import axios from 'axios';
 import { API_IP_ADDRESS } from '../../../config';
 import Toast from 'react-native-toast-message';
 import { launchImageLibrary } from 'react-native-image-picker';
-import { bucketName, s3 } from '../../services/s3';
+import { bucketName, s3 ,region} from '../../services/s3';
 import { Asset } from 'react-native-image-picker';
 import RNFS from 'react-native-fs';
 import { PutObjectCommand } from '@aws-sdk/client-s3';
@@ -161,7 +161,7 @@ const OrderItems = () => {
     console.log('S3 Upload successful:', response);
 
     // Construct the S3 URL
-    const s3Url = `http://${bucketName}.s3.amazonaws.com/${fileName}`;
+    const s3Url = `http://${bucketName}.s3.${region}.amazonaws.com/${fileName}`;
     
     // Verify the URL is accessible (optional)
     console.log('Uploaded image URL:', s3Url);
@@ -187,7 +187,7 @@ const OrderItems = () => {
     });
     
     // Return a placeholder URL instead of throwing
-    return 'https://via.placeholder.com/120';
+    return 'http://via.placeholder.com/120';
   } finally {
     setIsUploading(false);
   }

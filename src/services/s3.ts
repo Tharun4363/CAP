@@ -4,7 +4,7 @@ import { AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION, BUCKET_NAME } fro
 // Extract or fallback
 const accessKeyId: string = AWS_ACCESS_KEY_ID ?? '';
 const secretAccessKey: string = AWS_SECRET_ACCESS_KEY ?? '';
-const region: string = AWS_REGION || 'ap-south-1';
+export const region: string = AWS_REGION || 'ap-south-1';
 export const bucketName: string = BUCKET_NAME || 'visys-aiweb.ai4bazaar.com';
 
 // Validate required vars

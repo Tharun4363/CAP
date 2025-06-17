@@ -27,7 +27,7 @@ import RNFS from 'react-native-fs';
 import { Buffer } from 'buffer';
 import 'react-native-url-polyfill/auto';
 import ReactNativeBlobUtil from 'react-native-blob-util';
-import { s3, bucketName } from '../../services/s3';
+import { s3, bucketName , region} from '../../services/s3';
 import { PutObjectCommand } from '@aws-sdk/client-s3';
 global.Buffer = Buffer;
 
@@ -84,8 +84,9 @@ async function uploadToS3(file: any, key: string) {
 
       await s3.send(command);
 
-      const region = 'ap-south-1';
-      const s3Url = `http://${bucketName}.s3.amazonaws.com/${key}`;
+      // const region = 'ap-south-1';
+    const s3Url = `http://${bucketName}.s3.${region}.amazonaws.com/${key}`;
+
       return s3Url;
     }
 
@@ -101,8 +102,8 @@ async function uploadToS3(file: any, key: string) {
 
     await s3.send(command);
 
-    const region = 'ap-south-1';
-    const s3Url = `http://${bucketName}.s3.amazonaws.com/${key}`;
+    // const region = 'ap-south-2';
+    const s3Url =`http://${bucketName}.s3.${region}.amazonaws.com/${key}`;
     return s3Url;
   } catch (err: any) {
     console.error('S3 Upload Error:', err.message || err);
